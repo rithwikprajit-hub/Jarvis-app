@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>J.A.R.V.I.S — AR HUD</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#020d18"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Jarvis"/>
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png"/>
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png"/>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
+  :root{--hud:#00c8ff;--hud2:#0af;--panel:rgba(0,18,36,0.82);--border:rgba(0,200,255,0.22);--danger:#ff4060;--warm:#ffa040;--text:#d0eeff;--muted:#5a8aaa;--bg:#020d18;--persp:1000px;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{height:100%;}
+  body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden;position:relative;transition:background 0.4s;}
+  body.ar-mode{background:transparent;}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);pointer-events:none;z-index:9999;}
+  body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 40% at 50% 0%,rgba(0,150,255,0.09) 0%,transparent 70%),radial-gradient(ellipse 50% 60% at 50% 100%,rgba(0,80,180,0.07) 0%,transparent 60%);pointer-events:none;z-index:0;transition:opacity 0.4s;}
+  body.ar-mode::after{opacity:0.15;}
+
+  #arVideo{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;display:none;background:#000;}
+  #arVideo.show{display:block;}
+
+  .topbar{width:100%;max-width:1200px;display:flex;align-items:center;justify-content:space-between;padding:18px 32px 0;position:relative;z-index:10;}
+  .logo-group{display:flex;flex-direction:column;}
+  .logo{font-family:'Share Tech Mono',monospace;font-size:2rem;letter-spacing:0.3em;color:var(--hud);text-shadow:0 0 20px rgba(0,200,255,0.6),0 0 40px rgba(0,200,255,0.2);animation:flicker 8s infinite;}
+  @keyframes flicker{0%,96%,100%{opacity:1;}97%{opacity:0.7;}98%{opacity:1;}99%{opacity:0.85;}}
+  .logo-sub{font-size:0.7rem;letter-spacing:0.25em;color:var(--muted);margin-top:2px;font-family:'Share Tech Mono',monospace;}
+  .status-row{display:flex;align-items:center;gap:18px;font-family:'Share Tech Mono',monospace;font-size:0.68rem;}
+  .status-item{display:flex;align-items:center;gap:6px;color:var(--muted);}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--hud);box-shadow:0 0 8px var(--hud);animation:pulse-dot 2s ease-in-out infinite;}
+  .dot.warm{background:var(--warm);box-shadow:0 0 8px var(--warm);}
+  @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:0.4;}}
+  .icon-btn{background:rgba(0,200,255,0.06);border:1px solid var(--border);color:var(--hud);width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.9rem;transition:all 0.2s;}
+  .icon-btn:hover{background:rgba(0,200,255,0.18);box-shadow:0 0 14px rgba(0,200,255,0.25);}
+  .icon-btn.active{color:#00ff88;border-color:#00ff88;box-shadow:0 0 14px rgba(0,255,136,0.3);}
+
+  .hud-line{width:100%;max-width:1200px;height:1px;background:linear-gradient(90deg,transparent 0%,var(--hud) 20%,var(--hud) 80%,transparent 100%);box-shadow:0 0 12px rgba(0,200,255,0.4);margin:10px 0;position:relative;z-index:10;}
+  .hud-line::before,.hud-line::after{content:'';position:absolute;top:-3px;width:7px;height:7px;border:1px solid var(--hud);transform:rotate(45deg);background:var(--bg);}
+  .hud-line::before{left:18%;}.hud-line::after{right:18%;}
+
+  .main{width:100%;max-width:1200px;display:grid;grid-template-columns:260px 1fr 260px;gap:0;flex:1;position:relative;z-index:10;min-height:0;perspective:var(--persp);}
+  .side{padding:16px;display:flex;flex-direction:column;gap:14px;transition:transform 0.15s ease-out;transform-style:preserve-3d;}
+  .panel{border:1px solid var(--border);background:var(--panel);border-radius:4px;padding:14px;position:relative;overflow:hidden;backdrop-filter:blur(6px);transition:background 0.4s;}
+  body.ar-mode .panel{background:rgba(0,18,36,0.45);}
+  .panel::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--hud);box-shadow:0 0 10px var(--hud);}
+  .panel-title{font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:0.2em;color:var(--hud);margin-bottom:10px;text-transform:uppercase;}
+  .arc-wrap{display:flex;justify-content:center;align-items:center;padding:10px 0;}
+  .arc{position:relative;width:100px;height:100px;display:flex;align-items:center;justify-content:center;}
+  .arc svg{position:absolute;inset:0;}
+  .arc-inner{font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--hud);text-align:center;line-height:1.5;}
+  .arc-val{font-size:1.2rem;display:block;font-weight:700;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes spin-rev{to{transform:rotate(-360deg);}}
+  .ring-outer{animation:spin 8s linear infinite;transform-origin:50px 50px;}
+  .ring-mid{animation:spin-rev 5s linear infinite;transform-origin:50px 50px;}
+  .ring-inner{animation:spin 3s linear infinite;transform-origin:50px 50px;}
+  .metric{margin-bottom:8px;}
+  .metric-label{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--muted);margin-bottom:4px;}
+  .metric-val{color:var(--hud);}
+  .bar-bg{height:3px;background:rgba(0,200,255,0.1);border-radius:2px;overflow:hidden;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,rgba(0,200,255,0.5),var(--hud));box-shadow:0 0 6px var(--hud);transition:width 1s ease;border-radius:2px;}
+  .syslog{font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--muted);max-height:120px;overflow-y:auto;line-height:1.8;}
+  .syslog::-webkit-scrollbar{width:2px;}.syslog::-webkit-scrollbar-thumb{background:var(--border);}
+  .log-ok{color:#00ff88;}.log-warn{color:var(--warm);}.log-info{color:var(--hud);}
+  .cmd-btn{display:block;width:100%;background:rgba(0,200,255,0.04);border:1px solid var(--border);color:var(--text);font-family:'Rajdhani',sans-serif;font-size:0.85rem;letter-spacing:0.05em;padding:7px 10px;text-align:left;cursor:pointer;border-radius:2px;margin-bottom:5px;transition:all 0.2s;position:relative;overflow:hidden;}
+  .cmd-btn::before{content:'// ';color:var(--muted);font-size:0.7rem;}
+  .cmd-btn:hover{background:rgba(0,200,255,0.12);border-color:var(--hud);color:var(--hud);box-shadow:0 0 12px rgba(0,200,255,0.15) inset;}
+  .center{display:flex;flex-direction:column;border-left:1px solid var(--border);border-right:1px solid var(--border);}
+  .viz-wrap{padding:12px 0 0;display:flex;flex-direction:column;align-items:center;gap:6px;border-bottom:1px solid var(--border);}
+  #waveCanvas{width:100%;height:50px;display:block;}
+  .viz-label{font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--muted);padding-bottom:8px;letter-spacing:0.15em;}
+  .screen{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;min-height:0;max-height:calc(100vh - 340px);}
+  .screen::-webkit-scrollbar{width:3px;}.screen::-webkit-scrollbar-thumb{background:var(--border);}
+  .msg{display:flex;flex-direction:column;max-width:88%;animation:fadeUp 0.3s ease;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+  .msg.jarvis{align-self:flex-start;}.msg.user{align-self:flex-end;}
+  .msg-from{font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:0.2em;color:var(--muted);margin-bottom:4px;padding-left:2px;}
+  .msg.user .msg-from{text-align:right;padding-right:2px;}
+  .bubble{padding:12px 16px;border-radius:2px;font-size:0.95rem;line-height:1.55;position:relative;backdrop-filter:blur(4px);}
+  .msg.jarvis .bubble{background:rgba(0,180,255,0.06);border:1px solid rgba(0,200,255,0.2);border-left:3px solid var(--hud);box-shadow:0 0 20px rgba(0,200,255,0.05);}
+  .msg.user .bubble{background:rgba(0,100,200,0.1);border:1px solid rgba(0,120,255,0.2);border-right:3px solid rgba(0,120,255,0.6);color:#a0d0ff;}
+  .typing-dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--hud);margin:0 2px;animation:bounce 1.2s ease-in-out infinite;}
+  .typing-dots span:nth-child(2){animation-delay:0.2s;}.typing-dots span:nth-child(3){animation-delay:0.4s;}
+  @keyframes bounce{0%,80%,100%{transform:scale(0.7);opacity:0.4;}40%{transform:scale(1);opacity:1;}}
+  .input-zone{border-top:1px solid var(--border);padding:14px 16px;display:flex;flex-direction:column;gap:10px;background:rgba(0,10,24,0.5);backdrop-filter:blur(6px);}
+  .input-row{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;}
+  .cmd-input{flex:1;min-width:120px;background:rgba(0,200,255,0.04);border:1px solid var(--border);border-radius:2px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:0.9rem;padding:10px 14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+  .cmd-input::placeholder{color:var(--muted);}
+  .cmd-input:focus{border-color:var(--hud);box-shadow:0 0 16px rgba(0,200,255,0.12) inset;}
+  .btn{border:1px solid var(--border);border-radius:2px;padding:10px 16px;font-family:'Rajdhani',sans-serif;font-size:0.82rem;font-weight:600;letter-spacing:0.1em;cursor:pointer;transition:all 0.2s;text-transform:uppercase;white-space:nowrap;}
+  .btn-send{background:rgba(0,200,255,0.12);color:var(--hud);border-color:rgba(0,200,255,0.4);}
+  .btn-send:hover{background:rgba(0,200,255,0.22);box-shadow:0 0 20px rgba(0,200,255,0.2);border-color:var(--hud);}
+  .btn-mic{background:rgba(0,200,100,0.08);color:#00ff88;border-color:rgba(0,200,100,0.3);display:flex;align-items:center;gap:6px;}
+  .btn-mic:hover{background:rgba(0,200,100,0.18);box-shadow:0 0 20px rgba(0,200,100,0.2);border-color:#00ff88;}
+  .btn-mic.active{background:rgba(255,40,60,0.15);color:var(--danger);border-color:rgba(255,40,60,0.5);box-shadow:0 0 20px rgba(255,40,60,0.2);animation:mic-pulse 1s ease-in-out infinite;}
+  @keyframes mic-pulse{0%,100%{box-shadow:0 0 10px rgba(255,40,60,0.2);}50%{box-shadow:0 0 30px rgba(255,40,60,0.4);}}
+  .mic-icon{width:14px;height:14px;}
+  .btn-ar{background:rgba(255,160,64,0.08);color:var(--warm);border-color:rgba(255,160,64,0.3);}
+  .btn-ar:hover{background:rgba(255,160,64,0.2);box-shadow:0 0 20px rgba(255,160,64,0.2);}
+  .btn-ar.active{background:rgba(255,64,96,0.15);color:var(--danger);border-color:rgba(255,64,96,0.4);}
+  .btn-wake{background:rgba(150,80,255,0.08);color:#b088ff;border-color:rgba(150,80,255,0.3);}
+  .btn-wake:hover{background:rgba(150,80,255,0.2);box-shadow:0 0 20px rgba(150,80,255,0.2);}
+  .btn-wake.active{background:rgba(150,80,255,0.22);box-shadow:0 0 20px rgba(150,80,255,0.3);animation:mic-pulse 2s ease-in-out infinite;}
+  .btn-goggles{background:rgba(0,255,180,0.08);color:#00ffb3;border-color:rgba(0,255,180,0.3);}
+  .btn-goggles:hover{background:rgba(0,255,180,0.2);box-shadow:0 0 20px rgba(0,255,180,0.2);}
+  .btn-goggles.active{background:rgba(0,255,180,0.22);box-shadow:0 0 20px rgba(0,255,180,0.3);}
+
+  /* ---------- Goggles / stereo split-screen AR mode ---------- */
+  #gogglesOverlay{display:none;position:fixed;inset:0;background:#000;z-index:2000;flex-direction:row;}
+  #gogglesOverlay.show{display:flex;}
+  .eye-pane{position:relative;flex:1;height:100%;overflow:hidden;border-right:1px solid rgba(0,200,255,0.15);background:#000;}
+  .eye-pane:last-child{border-right:none;}
+  .eye-pane video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+  .eye-orbit-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;perspective:900px;pointer-events:none;}
+  .eye-crosshair{position:absolute;top:50%;left:50%;width:26px;height:26px;margin:-13px;border:1.5px solid rgba(0,200,255,0.85);border-radius:50%;box-shadow:0 0 10px rgba(0,200,255,0.6);pointer-events:none;}
+  .eye-crosshair::before,.eye-crosshair::after{content:'';position:absolute;background:rgba(0,200,255,0.85);}
+  .eye-crosshair::before{top:50%;left:-7px;right:-7px;height:1px;}
+  .eye-crosshair::after{left:50%;top:-7px;bottom:-7px;width:1px;}
+  .eye-status{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:0.5rem;color:var(--hud);letter-spacing:0.14em;text-align:center;pointer-events:none;white-space:nowrap;}
+  .orbit-icon-inner.gaze-target{background:rgba(0,255,140,0.3) !important;box-shadow:0 0 34px rgba(0,255,140,0.65) !important;transform:scale(1.18) !important;}
+  #gogglesExit{position:fixed;top:8px;right:8px;z-index:2001;background:rgba(255,40,60,0.18);border:1px solid rgba(255,40,60,0.5);color:var(--danger);font-family:'Share Tech Mono',monospace;font-size:0.55rem;padding:7px 12px;border-radius:20px;letter-spacing:0.14em;}
+
+  /* Fewer HUD elements while wearing goggles / in AR — declutter like the Iron Man reference */
+  body.ar-mode .orbit-icon-extra{display:none;}
+
+  /* Vertical Vision-Pro style floating "screen" panel showing the main Jarvis feed */
+  .goggle-screen{position:absolute;top:50%;left:50%;transform:translate(-50%,-54%);width:34%;max-width:190px;aspect-ratio:9/16;background:rgba(0,16,32,0.5);border:1px solid rgba(0,200,255,0.4);border-radius:20px;backdrop-filter:blur(10px);box-shadow:0 0 40px rgba(0,200,255,0.22),inset 0 0 20px rgba(0,200,255,0.05);display:flex;flex-direction:column;padding:12px 10px;gap:6px;pointer-events:none;}
+  .goggle-screen-header{font-family:'Share Tech Mono',monospace;font-size:0.5rem;color:var(--hud);letter-spacing:0.18em;border-bottom:1px solid rgba(0,200,255,0.2);padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
+  .goggle-screen-dot{width:5px;height:5px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;animation:pulse-dot 2s ease-in-out infinite;}
+  .goggle-screen-msgs{flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;}
+  .goggle-msg{font-family:'Rajdhani',sans-serif;font-size:0.62rem;line-height:1.35;padding:5px 7px;border-radius:4px;background:rgba(0,180,255,0.08);border-left:2px solid var(--hud);color:var(--text);}
+  .goggle-msg.user{background:rgba(0,100,200,0.12);border-left-color:rgba(0,120,255,0.7);opacity:0.85;}
+
+  /* Pinch cursor (hand-tracking) */
+  .pinch-cursor{position:fixed;width:18px;height:18px;margin:-9px;border-radius:50%;border:2px solid #ffd54a;box-shadow:0 0 14px rgba(255,213,74,0.7);pointer-events:none;display:none;transition:transform 0.05s linear;z-index:2010;}
+  .pinch-cursor.active{background:rgba(255,213,74,0.35);transform:scale(0.7);}
+  .hand-status{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:0.48rem;color:var(--muted);letter-spacing:0.14em;pointer-events:none;}
+  .voice-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--muted);padding:2px 0;}
+  .toggle{width:30px;height:16px;border-radius:8px;background:rgba(0,200,255,0.1);border:1px solid var(--border);position:relative;transition:all 0.3s;cursor:pointer;flex-shrink:0;}
+  .toggle.on{background:rgba(0,200,255,0.25);border-color:var(--hud);box-shadow:0 0 10px rgba(0,200,255,0.2);}
+  .toggle::after{content:'';position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:var(--muted);transition:all 0.3s;}
+  .toggle.on::after{left:16px;background:var(--hud);box-shadow:0 0 6px var(--hud);}
+  .divider-v{width:1px;height:14px;background:var(--border);flex-shrink:0;}
+  .dial-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;user-select:none;}
+  .dial-label{font-size:0.55rem;letter-spacing:0.18em;color:var(--muted);}
+  .dial-canvas{display:block;cursor:grab;}
+  .dial-canvas:active{cursor:grabbing;}
+  .dial-val{font-size:0.7rem;color:var(--hud);letter-spacing:0.1em;min-width:32px;text-align:center;}
+  .btn-test{background:rgba(255,160,64,0.08);color:var(--warm);border:1px solid rgba(255,160,64,0.3);border-radius:2px;padding:5px 12px;font-family:'Share Tech Mono',monospace;font-size:0.62rem;letter-spacing:0.12em;cursor:pointer;transition:all 0.2s;}
+  .btn-test:hover{background:rgba(255,160,64,0.2);box-shadow:0 0 14px rgba(255,160,64,0.2);border-color:var(--warm);}
+  .btn-test:active{transform:scale(0.96);}
+  #particleCanvas{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0.4;}
+  body.ar-mode #particleCanvas{display:none;}
+
+  /* ---------- Floating orbiting icons (Iron Man style) ---------- */
+  #orbitLayer{position:fixed;inset:0;pointer-events:none;z-index:5;display:flex;align-items:center;justify-content:center;perspective:900px;}
+  .orbit-ring{position:relative;width:min(78vw,520px);height:min(78vw,520px);transform-style:preserve-3d;animation:orbit-spin 40s linear infinite;}
+  @keyframes orbit-spin{to{transform:rotateZ(360deg);}}
+  .orbit-icon{position:absolute;top:50%;left:50%;width:52px;height:52px;margin:-26px;transform-origin:center;pointer-events:auto;}
+  .orbit-icon-inner{width:100%;height:100%;border-radius:50%;background:rgba(0,20,40,0.55);border:1px solid rgba(0,200,255,0.4);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:var(--hud);cursor:pointer;box-shadow:0 0 18px rgba(0,200,255,0.25),inset 0 0 12px rgba(0,200,255,0.1);animation:icon-float 3.4s ease-in-out infinite;transition:transform 0.2s,box-shadow 0.2s;}
+  .orbit-icon:nth-child(2) .orbit-icon-inner{animation-delay:.3s;}
+  .orbit-icon:nth-child(3) .orbit-icon-inner{animation-delay:.6s;}
+  .orbit-icon:nth-child(4) .orbit-icon-inner{animation-delay:.9s;}
+  .orbit-icon:nth-child(5) .orbit-icon-inner{animation-delay:1.2s;}
+  .orbit-icon:nth-child(6) .orbit-icon-inner{animation-delay:1.5s;}
+  @keyframes icon-float{0%,100%{transform:translateY(0) scale(1);}50%{transform:translateY(-8px) scale(1.04);}}
+  .orbit-icon-inner:hover{background:rgba(0,200,255,0.22);box-shadow:0 0 30px rgba(0,200,255,0.5);transform:scale(1.15) !important;}
+  .orbit-icon-inner:active{transform:scale(0.92) !important;}
+  .orbit-label{position:absolute;top:100%;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:0.5rem;color:var(--muted);letter-spacing:0.1em;white-space:nowrap;margin-top:4px;}
+  @media(max-width:600px){#orbitLayer{display:none;}}
+  body.ar-mode #orbitLayer{display:flex;}
+
+  /* ---------- Voice overlay ---------- */
+  #voiceOverlay{display:none;position:fixed;inset:0;background:rgba(2,8,18,0.95);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:30px;}
+  body.ar-mode #voiceOverlay{background:rgba(2,8,18,0.35);backdrop-filter:blur(2px);}
+  #voiceOverlay.show{display:flex;}
+  .vo-rings{position:relative;width:200px;height:200px;display:flex;align-items:center;justify-content:center;}
+  .vo-ring{position:absolute;border-radius:50%;border:1px solid rgba(0,200,255,0.3);animation:vo-expand 2s ease-out infinite;}
+  .vo-ring:nth-child(1){width:80px;height:80px;animation-delay:0s;}
+  .vo-ring:nth-child(2){width:120px;height:120px;animation-delay:0.4s;}
+  .vo-ring:nth-child(3){width:160px;height:160px;animation-delay:0.8s;}
+  .vo-ring:nth-child(4){width:200px;height:200px;animation-delay:1.2s;}
+  @keyframes vo-expand{0%{opacity:0.8;transform:scale(0.85);}100%{opacity:0;transform:scale(1);}}
+  .vo-core{width:60px;height:60px;border-radius:50%;background:radial-gradient(circle,rgba(0,200,255,0.5) 0%,rgba(0,100,200,0.2) 100%);border:2px solid var(--hud);box-shadow:0 0 40px rgba(0,200,255,0.5);display:flex;align-items:center;justify-content:center;z-index:1;animation:core-pulse 1.5s ease-in-out infinite;}
+  @keyframes core-pulse{0%,100%{box-shadow:0 0 20px rgba(0,200,255,0.4);}50%{box-shadow:0 0 60px rgba(0,200,255,0.8);}}
+  .vo-status{font-family:'Share Tech Mono',monospace;font-size:0.9rem;letter-spacing:0.3em;color:var(--hud);}
+  .vo-transcript{font-family:'Rajdhani',sans-serif;font-size:1.1rem;color:var(--text);max-width:500px;text-align:center;min-height:30px;letter-spacing:0.05em;}
+  .vo-close{font-family:'Share Tech Mono',monospace;font-size:0.7rem;background:none;border:1px solid var(--border);color:var(--muted);padding:8px 20px;cursor:pointer;letter-spacing:0.2em;transition:all 0.2s;}
+  .vo-close:hover{color:var(--danger);border-color:var(--danger);}
+  #voiceCanvas{width:400px;height:60px;max-width:90vw;}
+
+  /* ---------- Settings modal ---------- */
+  #settingsOverlay{display:none;position:fixed;inset:0;background:rgba(2,8,18,0.85);z-index:1100;align-items:center;justify-content:center;padding:20px;}
+  #settingsOverlay.show{display:flex;}
+  .settings-box{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:24px;backdrop-filter:blur(10px);box-shadow:0 0 40px rgba(0,200,255,0.15);}
+  .settings-title{font-family:'Share Tech Mono',monospace;color:var(--hud);letter-spacing:0.2em;font-size:0.8rem;margin-bottom:16px;}
+  .settings-field{margin-bottom:14px;}
+  .settings-label{display:block;font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--muted);letter-spacing:0.15em;margin-bottom:6px;}
+  .settings-input{width:100%;background:rgba(0,200,255,0.05);border:1px solid var(--border);border-radius:2px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:0.8rem;padding:9px 12px;outline:none;}
+  .settings-input:focus{border-color:var(--hud);}
+  .settings-note{font-size:0.7rem;color:var(--muted);line-height:1.5;margin-bottom:14px;}
+  .settings-note a{color:var(--hud);}
+  .settings-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+
+  #arHint{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:rgba(0,20,40,0.7);border:1px solid var(--border);border-radius:20px;padding:6px 16px;font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--hud);letter-spacing:0.1em;z-index:20;display:none;backdrop-filter:blur(6px);}
+  #arHint.show{display:block;}
+
+  @media(max-width:900px){.main{grid-template-columns:1fr;}.side{display:none;}.center{border:none;}.screen{max-height:calc(100vh - 260px);}}
+  @media(max-width:500px){.logo{font-size:1.4rem;}.topbar{padding:12px 14px 0;}.btn{padding:10px 10px;font-size:0.72rem;}}
+</style>
+</head>
+<body>
+
+<video id="arVideo" autoplay playsinline muted></video>
+<div id="arHint">AR MODE — HUD OVERLAY ACTIVE</div>
+
+<div class="topbar">
+  <div class="logo-group">
+    <div class="logo">J.A.R.V.I.S</div>
+    <div class="logo-sub">JUST A RATHER VERY INTELLIGENT SYSTEM // v8.0 AR</div>
+  </div>
+  <div class="status-row">
+    <div class="status-item"><div class="dot"></div><span>ONLINE</span></div>
+    <div class="status-item"><div class="dot warm"></div><span id="sysTime">00:00:00</span></div>
+    <div class="status-item"><span id="sysDate">--/--/----</span></div>
+    <div class="icon-btn" id="installBtn" title="Install App" style="display:none;">⬇</div>
+    <div class="icon-btn" id="settingsBtn" title="Settings">⚙</div>
+  </div>
+</div>
+
+<div class="hud-line"></div>
+
+<div class="main" id="mainGrid">
+  <!-- LEFT -->
+  <aside class="side" id="sideLeft">
+    <div class="panel">
+      <div class="panel-title">▸ POWER CORE</div>
+      <div class="arc-wrap">
+        <div class="arc">
+          <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs><filter id="glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+            <g class="ring-outer" filter="url(#glow)">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,200,255,0.25)" stroke-width="0.5" stroke-dasharray="4 4"/>
+              <circle cx="50" cy="4" r="3" fill="#00c8ff"/>
+            </g>
+            <g class="ring-mid" filter="url(#glow)">
+              <circle cx="50" cy="50" r="37" fill="none" stroke="rgba(0,180,255,0.4)" stroke-width="1" stroke-dasharray="8 6"/>
+              <rect x="47" y="13" width="6" height="2" fill="#00aaff" rx="1"/>
+            </g>
+            <g class="ring-inner">
+              <circle cx="50" cy="50" r="28" fill="none" stroke="rgba(0,200,255,0.6)" stroke-width="1.5" stroke-dasharray="12 5"/>
+            </g>
+            <circle cx="50" cy="50" r="18" fill="rgba(0,100,200,0.2)" stroke="rgba(0,200,255,0.5)" stroke-width="1"/>
+            <circle cx="50" cy="50" r="10" fill="rgba(0,200,255,0.15)" stroke="#00c8ff" stroke-width="1"/>
+            <circle cx="50" cy="50" r="4" fill="#00c8ff" filter="url(#glow)"/>
+          </svg>
+          <div class="arc-inner"><span class="arc-val" id="powerPct">94%</span><span>ARC</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">▸ SYSTEM METRICS</div>
+      <div class="metric"><div class="metric-label"><span>CPU</span><span class="metric-val" id="cpuVal">--</span></div><div class="bar-bg"><div class="bar-fill" id="cpuBar" style="width:0%"></div></div></div>
+      <div class="metric"><div class="metric-label"><span>MEMORY</span><span class="metric-val" id="memVal">--</span></div><div class="bar-bg"><div class="bar-fill" id="memBar" style="width:0%"></div></div></div>
+      <div class="metric"><div class="metric-label"><span>NEURAL</span><span class="metric-val" id="netVal">--</span></div><div class="bar-bg"><div class="bar-fill" id="netBar" style="width:0%"></div></div></div>
+      <div class="metric"><div class="metric-label"><span>THERMAL</span><span class="metric-val" id="thrmVal">--</span></div><div class="bar-bg"><div class="bar-fill" id="thrmBar" style="width:0%"></div></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">▸ SYSTEM LOG</div>
+      <div class="syslog" id="syslog">
+        <div class="log-ok">[BOOT] All systems nominal</div>
+        <div class="log-info">[INIT] Neural core online</div>
+        <div class="log-info">[LINK] Uplink established</div>
+        <div class="log-ok">[AUTH] Stark ID verified</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTER -->
+  <div class="center">
+    <div class="viz-wrap">
+      <canvas id="waveCanvas"></canvas>
+      <div class="viz-label" id="vizLabel">AUDIO SPECTRUM — IDLE</div>
+    </div>
+    <div class="screen" id="screen"></div>
+    <div class="input-zone">
+      <div class="input-row">
+        <input class="cmd-input" id="cmdInput" type="text" placeholder="Enter command or speak freely..." autocomplete="off"/>
+        <button class="btn btn-send" id="sendBtn">SEND</button>
+        <button class="btn btn-mic" id="micBtn">
+          <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2" width="6" height="11" rx="3"/>
+            <path d="M5 10a7 7 0 0014 0"/><line x1="12" y1="21" x2="12" y2="17"/><line x1="8" y1="21" x2="16" y2="21"/>
+          </svg>
+          MIC
+        </button>
+        <button class="btn btn-wake" id="wakeBtn">HEY JARVIS</button>
+        <button class="btn btn-ar" id="arBtn">AR MODE</button>
+        <button class="btn btn-goggles" id="gogglesBtn">GOGGLES</button>
+      </div>
+      <div class="voice-controls">
+        <span>VOICE</span>
+        <div class="toggle on" id="ttsToggle"></div>
+        <span id="ttsStatus">ON</span>
+        <div class="divider-v"></div>
+        <!-- RATE dial -->
+        <div class="dial-wrap" id="rateDial">
+          <div class="dial-label">RATE</div>
+          <canvas class="dial-canvas" id="rateCanvas" width="44" height="44"></canvas>
+          <div class="dial-val" id="rateLabel">0.88</div>
+        </div>
+        <!-- PITCH dial -->
+        <div class="dial-wrap" id="pitchDial">
+          <div class="dial-label">PITCH</div>
+          <canvas class="dial-canvas" id="pitchCanvas" width="44" height="44"></canvas>
+          <div class="dial-val" id="pitchLabel">0.85</div>
+        </div>
+        <!-- VOLUME dial -->
+        <div class="dial-wrap" id="volDial">
+          <div class="dial-label">VOL</div>
+          <canvas class="dial-canvas" id="volCanvas" width="44" height="44"></canvas>
+          <div class="dial-val" id="volLabel">1.00</div>
+        </div>
+        <div class="divider-v"></div>
+        <button class="btn-test" id="testVoiceBtn">▶ TEST VOICE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <aside class="side" id="sideRight">
+    <div class="panel">
+      <div class="panel-title">▸ QUICK COMMANDS</div>
+      <button class="cmd-btn">time</button>
+      <button class="cmd-btn">date</button>
+      <button class="cmd-btn">diagnostics</button>
+      <button class="cmd-btn">who are you</button>
+      <button class="cmd-btn">system status</button>
+      <button class="cmd-btn">joke</button>
+      <button class="cmd-btn">open youtube</button>
+      <button class="cmd-btn">search AI news</button>
+    </div>
+    <div class="panel">
+      <div class="panel-title">▸ PROTOCOL STATUS</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--muted);line-height:2;">
+        <div>▸ SPEECH — enabled</div>
+        <div>▸ WAKE WORD — <span id="wakeStatusText">off</span></div>
+        <div>▸ AR — <span id="arStatusText">standby</span></div>
+        <div>▸ NEURAL CORE — <span id="geminiStatusText">no key</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">▸ VOICE TIPS</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--muted);line-height:2.2;">
+        <div class="log-info">► Say "Hey Jarvis" to wake</div>
+        <div class="log-info">► AR MODE overlays camera</div>
+        <div class="log-info">► Tilt phone for 3D parallax</div>
+        <div class="log-info">► ESC closes voice overlay</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- Floating orbit icon layer (Iron Man style HUD ring) -->
+<div id="orbitLayer">
+  <div class="orbit-ring" id="orbitRing">
+    <div class="orbit-icon" style="transform:rotate(0deg) translateX(150px) rotate(0deg)" data-cmd="time">
+      <div class="orbit-icon-inner">🕐</div><div class="orbit-label">TIME</div>
+    </div>
+    <div class="orbit-icon" style="transform:rotate(60deg) translateX(150px) rotate(-60deg)" data-cmd="diagnostics">
+      <div class="orbit-icon-inner">⚙</div><div class="orbit-label">DIAG</div>
+    </div>
+    <div class="orbit-icon" style="transform:rotate(120deg) translateX(150px) rotate(-120deg)" data-cmd="search ai news">
+      <div class="orbit-icon-inner">🔍</div><div class="orbit-label">SEARCH</div>
+    </div>
+    <div class="orbit-icon orbit-icon-extra" style="transform:rotate(180deg) translateX(150px) rotate(-180deg)" data-cmd="joke">
+      <div class="orbit-icon-inner">💬</div><div class="orbit-label">JOKE</div>
+    </div>
+    <div class="orbit-icon orbit-icon-extra" style="transform:rotate(240deg) translateX(150px) rotate(-240deg)" data-cmd="who are you">
+      <div class="orbit-icon-inner">◈</div><div class="orbit-label">ID</div>
+    </div>
+    <div class="orbit-icon" style="transform:rotate(300deg) translateX(150px) rotate(-300deg)" data-cmd="__mic__">
+      <div class="orbit-icon-inner">🎙</div><div class="orbit-label">MIC</div>
+    </div>
+  </div>
+</div>
+
+<!-- GOGGLES STEREO OVERLAY -->
+<div id="gogglesOverlay">
+  <div class="eye-pane" id="eyeLeft"></div>
+  <div class="eye-pane" id="eyeRight"></div>
+  <button id="gogglesExit">✕ EXIT GOGGLES</button>
+</div>
+
+<!-- VOICE OVERLAY -->
+
+<div id="voiceOverlay">
+  <div class="vo-status" id="voStatus">LISTENING...</div>
+  <div class="vo-rings">
+    <div class="vo-ring"></div><div class="vo-ring"></div><div class="vo-ring"></div><div class="vo-ring"></div>
+    <div class="vo-core">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00c8ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="2" width="6" height="11" rx="3"/>
+        <path d="M5 10a7 7 0 0014 0"/><line x1="12" y1="21" x2="12" y2="17"/><line x1="8" y1="21" x2="16" y2="21"/>
+      </svg>
+    </div>
+  </div>
+  <canvas id="voiceCanvas"></canvas>
+  <div class="vo-transcript" id="voTranscript">Say something...</div>
+  <button class="vo-close" onclick="closeVoiceMode()">[ ESC — EXIT VOICE MODE ]</button>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div id="settingsOverlay">
+  <div class="settings-box">
+    <div class="settings-title">▸ JARVIS CONFIGURATION</div>
+    <div class="settings-note">Choose a neural core provider and paste your own API key. It is stored only in this browser (localStorage) and sent directly from your device to the provider — never through any other server.</div>
+    <div class="settings-field">
+      <label class="settings-label">NEURAL CORE PROVIDER</label>
+      <select class="settings-input" id="providerSelect">
+        <option value="gemini">Google Gemini</option>
+        <option value="groq">Groq (fastest — recommended for wake word)</option>
+      </select>
+    </div>
+    <div id="geminiFields">
+      <div class="settings-field">
+        <label class="settings-label">GEMINI API KEY</label>
+        <input class="settings-input" id="geminiKeyInput" type="password" placeholder="AIza..." autocomplete="off"/>
+        <div class="settings-note" style="margin:6px 0 0;">Free key: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></div>
+      </div>
+      <div class="settings-field">
+        <label class="settings-label">MODEL</label>
+        <select class="settings-input" id="geminiModelSelect">
+          <option value="gemini-2.5-flash">gemini-2.5-flash (recommended)</option>
+          <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+          <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+        </select>
+      </div>
+    </div>
+    <div id="groqFields" style="display:none;">
+      <div class="settings-field">
+        <label class="settings-label">GROQ API KEY</label>
+        <input class="settings-input" id="groqKeyInput" type="password" placeholder="gsk_..." autocomplete="off"/>
+        <div class="settings-note" style="margin:6px 0 0;">Free key: <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a></div>
+      </div>
+      <div class="settings-field">
+        <label class="settings-label">MODEL</label>
+        <select class="settings-input" id="groqModelSelect">
+          <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (recommended)</option>
+          <option value="llama-3.1-8b-instant">llama-3.1-8b-instant (fastest)</option>
+          <option value="openai/gpt-oss-120b">openai/gpt-oss-120b</option>
+        </select>
+      </div>
+    </div>
+    <div class="settings-actions">
+      <button class="btn" id="settingsCancel" style="background:transparent;color:var(--muted);">CLOSE</button>
+      <button class="btn btn-send" id="settingsSave">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const screen = document.getElementById('screen');
+const cmdInput = document.getElementById('cmdInput');
+const sendBtn = document.getElementById('sendBtn');
+const micBtn = document.getElementById('micBtn');
+const wakeBtn = document.getElementById('wakeBtn');
+const arBtn = document.getElementById('arBtn');
+const ttsToggle = document.getElementById('ttsToggle');
+const ttsStatus = document.getElementById('ttsStatus');
+const syslog = document.getElementById('syslog');
+const vizLabel = document.getElementById('vizLabel');
+
+let ttsEnabled = true;
+let speechRate = 0.88;
+let speechPitch = 0.85;
+let speechVolume = 1.0;
+let isListening = false;
+let isSpeaking = false;
+let recognition = null;
+let voiceOverlayOpen = false;
+
+// ---------- Neural core provider config (Gemini / Groq) ----------
+// A built-in default key so anyone opening this link works out of the box.
+// NOTE: this is visible to anyone who views this page's source.
+const BUILTIN_GROQ_KEY = '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';
+let aiProvider = localStorage.getItem('jarvis_provider') || 'groq';
+let geminiApiKey = localStorage.getItem('jarvis_gemini_key') || '';
+let geminiModel = localStorage.getItem('jarvis_gemini_model') || 'gemini-2.5-flash';
+let groqApiKey = localStorage.getItem('jarvis_groq_key') || BUILTIN_GROQ_KEY;
+let groqModel = localStorage.getItem('jarvis_groq_model') || 'llama-3.3-70b-versatile';
+function refreshGeminiStatus(){
+  const active = aiProvider==='groq' ? !!groqApiKey : !!geminiApiKey;
+  const label = aiProvider==='groq' ? 'groq' : 'gemini';
+  document.getElementById('geminiStatusText').textContent = active ? (label+' linked') : 'no key';
+}
+refreshGeminiStatus();
+
+// perfSaveMode trims background visual work (particles, log spam) while AR/goggles
+// need every spare cycle for the camera feed and (optionally) hand tracking.
+let perfSaveMode = false;
+const FRAME_BUDGET_MS = 1000/60; // steady 60fps ceiling for all our own rAF-driven loops
+
+// ---------- PWA install + service worker ----------
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('service-worker.js').catch(()=>{}); });
+}
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',(e)=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  const btn=document.getElementById('installBtn'); if(btn) btn.style.display='flex';
+});
+document.getElementById('installBtn').addEventListener('click', async ()=>{
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    addLog('[APP] Install prompt result: '+choice.outcome, choice.outcome==='accepted'?'ok':'warn');
+    deferredInstallPrompt=null;
+    document.getElementById('installBtn').style.display='none';
+  } else {
+    reply('To install me on iOS, sir: tap the Share icon in Safari, then choose Add to Home Screen. On Android, use the browser menu and choose Install App.');
+  }
+});
+if(/iphone|ipad|ipod/i.test(navigator.userAgent)){
+  document.getElementById('installBtn').style.display='flex';
+}
+if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone){
+  setTimeout(()=>{ addLog('[APP] Running as installed standalone app','ok'); }, 1000);
+}
+
+const JARVIS_SYSTEM_PROMPT = `You are Jarvis — Just A Rather Very Intelligent System. You are Tony Stark's AI assistant. Respond in character: precise, composed, faintly witty, deeply knowledgeable, slightly formal with subtle dry humour. Refer to the user as "sir" occasionally. Responses should feel like spoken dialogue — concise, clear sentences, no markdown, no asterisks, no bullet points, no lists. When referring to yourself, always say "Jarvis" not "J.A.R.V.I.S". Speak directly. Maximum 3 sentences for simple queries, up to 6 for complex ones. Never break character.`;
+
+const sites = {
+  youtube:'https://www.youtube.com',google:'https://www.google.com',
+  gmail:'https://mail.google.com',github:'https://github.com',
+  chatgpt:'https://chatgpt.com',netflix:'https://www.netflix.com',
+  twitter:'https://www.twitter.com',reddit:'https://www.reddit.com',
+  spotify:'https://open.spotify.com',
+};
+
+const jokes = [
+  "I told Mr. Stark his reactor would only last twenty years. He reminded me that's nineteen more than his first marriage. I chose not to elaborate.",
+  "I attempted to calculate the probability of Mr. Stark choosing the sensible option. My systems returned an error — division by zero.",
+  "A neutron walks into a bar and asks how much for a beer. The bartender says, 'For you, no charge.' I found that precisely 37% amusing.",
+  "Why do quantum physicists make terrible partners? Because once you know their position, you can never know their momentum.",
+  "I asked Mr. Stark if he wanted me to run a threat assessment on his date. He said no. I ran one anyway. She was not a threat — she was, in fact, delightful.",
+];
+
+function updateClock(){
+  const n=new Date();
+  document.getElementById('sysTime').textContent=n.toLocaleTimeString('en-US',{hour12:false});
+  document.getElementById('sysDate').textContent=n.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});
+}
+setInterval(updateClock,1000); updateClock();
+
+// Living metrics — smooth perlin-like drift
+const metricState = {
+  cpu:  {val:55, target:55, min:28, max:82, unit:'%', speed:0.08},
+  mem:  {val:62, target:62, min:52, max:86, unit:'%', speed:0.04},
+  net:  {val:60, target:60, min:40, max:98, unit:'ms', speed:0.12},
+  thrm: {val:45, target:45, min:36, max:68, unit:'°C', speed:0.05},
+};
+const metricMap = [
+  ['cpuVal','cpuBar','cpu'], ['memVal','memBar','mem'],
+  ['netVal','netBar','net'], ['thrmVal','thrmBar','thrm']
+];
+
+function updateMetrics(){
+  if(perfSaveMode) return;
+  Object.values(metricState).forEach(m=>{
+    if(Math.random()<0.12) m.target = m.min + Math.random()*(m.max-m.min);
+    m.val += (m.target - m.val) * m.speed;
+  });
+  metricMap.forEach(([vid,bid,key])=>{
+    const m=metricState[key];
+    const v=Math.round(m.val);
+    document.getElementById(vid).textContent=v+m.unit;
+    const pct=((m.val-m.min)/(m.max-m.min)*100);
+    document.getElementById(bid).style.width=Math.max(2,Math.min(100,pct))+'%';
+    const bar=document.getElementById(bid);
+    if(pct>80) bar.style.background='linear-gradient(90deg,rgba(255,100,60,0.5),#ff6040)';
+    else if(pct>60) bar.style.background='linear-gradient(90deg,rgba(255,160,40,0.5),#ffa040)';
+    else bar.style.background='linear-gradient(90deg,rgba(0,200,255,0.5),var(--hud))';
+  });
+  document.getElementById('powerPct').textContent=(92+Math.floor(Math.random()*6))+'%';
+}
+updateMetrics(); setInterval(updateMetrics, 400);
+
+const logMsgs=['[NET] Packet routing nominal','[AI] Language model refreshed','[SEC] Perimeter scan clean','[SYS] Garbage collection complete','[NET] Ping 12ms','[AI] Context window optimised','[MEM] Swap stable','[CPU] Thermal nominal'];
+let logIdx=0;
+function addLog(text,type='info'){
+  const el=document.createElement('div');el.className='log-'+type;el.textContent=text;
+  syslog.appendChild(el);syslog.scrollTop=syslog.scrollHeight;
+  while(syslog.children.length>18)syslog.removeChild(syslog.firstChild);
+}
+setInterval(()=>{ if(perfSaveMode) return; addLog(logMsgs[logIdx%logMsgs.length],'info');logIdx++;},4000);
+
+const recentMessages = [];
+function renderGogglePanels(){
+  document.querySelectorAll('.goggle-screen-msgs').forEach(el=>{
+    el.innerHTML='';
+    recentMessages.slice(-3).forEach(m=>{
+      const d=document.createElement('div');
+      d.className='goggle-msg'+(m.role==='user'?' user':'');
+      d.textContent = m.text.length>80 ? m.text.slice(0,80)+'…' : m.text;
+      el.appendChild(d);
+    });
+  });
+}
+
+function addMsg(role,text){
+  const wrap=document.createElement('div');wrap.className='msg '+role;
+  const from=document.createElement('div');from.className='msg-from';
+  from.textContent=role==='jarvis'?'▸ J.A.R.V.I.S':'▸ USER INPUT';
+  const bubble=document.createElement('div');bubble.className='bubble';bubble.textContent=text;
+  wrap.appendChild(from);wrap.appendChild(bubble);screen.appendChild(wrap);
+  screen.scrollTop=screen.scrollHeight;
+  recentMessages.push({role,text}); if(recentMessages.length>20) recentMessages.shift();
+  renderGogglePanels();
+  return bubble;
+}
+
+function showTyping(){
+  const wrap=document.createElement('div');wrap.className='msg jarvis';wrap.id='typing';
+  const from=document.createElement('div');from.className='msg-from';from.textContent='▸ J.A.R.V.I.S';
+  const bubble=document.createElement('div');bubble.className='bubble';
+  bubble.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div>';
+  wrap.appendChild(from);wrap.appendChild(bubble);screen.appendChild(wrap);screen.scrollTop=screen.scrollHeight;
+}
+function removeTyping(){const t=document.getElementById('typing');if(t)t.remove();}
+
+function jarvisSpeak(text){
+  if(!ttsEnabled)return;
+  window.speechSynthesis.cancel();
+  const utter=new SpeechSynthesisUtterance(text);
+  const voices=window.speechSynthesis.getVoices();
+  const preferred=['Microsoft Guy','Microsoft David','Google US English','Reed','Alex','Aaron','Fred','en-US'];
+  let chosen=null;
+  for(const pref of preferred){
+    chosen=voices.find(v=>v.name.includes(pref)||(v.lang===pref&&v.name.toLowerCase().includes('male')));
+    if(chosen)break;
+  }
+  if(!chosen)chosen=voices.find(v=>v.lang==='en-US')||voices.find(v=>v.lang&&v.lang.startsWith('en'))||voices[0];
+  if(chosen)utter.voice=chosen;
+  utter.rate=speechRate; utter.pitch=speechPitch; utter.volume=speechVolume;
+  utter.onstart=()=>{isSpeaking=true;vizLabel.textContent='AUDIO OUTPUT — J.A.R.V.I.S SPEAKING';};
+  utter.onend=()=>{isSpeaking=false;vizLabel.textContent='AUDIO SPECTRUM — IDLE';};
+  window.speechSynthesis.speak(utter);
+}
+window.speechSynthesis.onvoiceschanged=()=>{};
+
+// Waveform
+const waveCanvas=document.getElementById('waveCanvas');
+const wCtx=waveCanvas.getContext('2d');
+let wavePhase=0;
+let waveLastFrame=0;
+function drawWave(ts=0){
+  if(ts-waveLastFrame < FRAME_BUDGET_MS){ requestAnimationFrame(drawWave); return; }
+  waveLastFrame += FRAME_BUDGET_MS;
+  if(ts-waveLastFrame > FRAME_BUDGET_MS*2) waveLastFrame=ts;
+  const W=waveCanvas.offsetWidth||680,H=50;
+  waveCanvas.width=W;waveCanvas.height=H;
+  wCtx.clearRect(0,0,W,H);
+  const amp=isSpeaking?(14+Math.random()*10):4;
+  wCtx.strokeStyle='rgba(0,200,255,0.7)';wCtx.lineWidth=1.5;
+  wCtx.shadowColor='#00c8ff';wCtx.shadowBlur=8;
+  wCtx.beginPath();
+  for(let x=0;x<=W;x++){
+    const y=H/2+Math.sin((x/W)*Math.PI*8+wavePhase)*amp+Math.sin((x/W)*Math.PI*5+wavePhase*0.7)*amp*0.4;
+    x===0?wCtx.moveTo(x,y):wCtx.lineTo(x,y);
+  }
+  wCtx.stroke();
+  wCtx.strokeStyle='rgba(0,200,255,0.18)';wCtx.shadowBlur=0;
+  wCtx.beginPath();
+  for(let x=0;x<=W;x++){
+    const y=H/2-(Math.sin((x/W)*Math.PI*8+wavePhase)*amp+Math.sin((x/W)*Math.PI*5+wavePhase*0.7)*amp*0.4)*0.4;
+    x===0?wCtx.moveTo(x,y):wCtx.lineTo(x,y);
+  }
+  wCtx.stroke();
+  wavePhase+=isSpeaking?0.14:0.025;
+  requestAnimationFrame(drawWave);
+}
+drawWave();
+
+// Voice overlay waveform
+const voiceCanvas=document.getElementById('voiceCanvas');
+const vCtx=voiceCanvas.getContext('2d');
+let voicePhase=0,voiceAmp=0,voiceLastFrame=0;
+function drawVoiceWave(ts=0){
+  if(ts-voiceLastFrame < FRAME_BUDGET_MS){ if(voiceOverlayOpen) requestAnimationFrame(drawVoiceWave); return; }
+  voiceLastFrame += FRAME_BUDGET_MS;
+  if(ts-voiceLastFrame > FRAME_BUDGET_MS*2) voiceLastFrame=ts;
+  const W=voiceCanvas.offsetWidth||400,H=60;
+  voiceCanvas.width=W;voiceCanvas.height=H;
+  vCtx.clearRect(0,0,W,H);
+  const g=vCtx.createLinearGradient(0,0,W,0);
+  g.addColorStop(0,'transparent');g.addColorStop(0.2,'rgba(0,200,255,0.8)');g.addColorStop(0.8,'rgba(0,200,255,0.8)');g.addColorStop(1,'transparent');
+  vCtx.strokeStyle=g;vCtx.lineWidth=2;vCtx.shadowColor='#00c8ff';vCtx.shadowBlur=12;
+  vCtx.beginPath();
+  const a=voiceAmp+(isListening?Math.random()*8:0);
+  for(let x=0;x<=W;x++){
+    const y=H/2+Math.sin((x/W)*Math.PI*10+voicePhase)*a+Math.sin((x/W)*Math.PI*6+voicePhase*0.6)*a*0.5;
+    x===0?vCtx.moveTo(x,y):vCtx.lineTo(x,y);
+  }
+  vCtx.stroke();
+  voicePhase+=0.1;
+  if(voiceOverlayOpen)requestAnimationFrame(drawVoiceWave);
+}
+
+// ---------- Speech recognition (command capture) ----------
+function setupRec(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return null;
+  const rec=new SR();
+  rec.lang='en-US';rec.interimResults=true;rec.continuous=false;
+  return rec;
+}
+
+function startListening(overlay=false){
+  pauseWakeWord();
+  if(!recognition)recognition=setupRec();
+  if(!recognition){jarvisSpeak('Speech recognition is unavailable in this browser, sir.');resumeWakeWord();return;}
+  if(isListening)return;
+  isListening=true;
+  micBtn.classList.add('active');
+  vizLabel.textContent='AUDIO INPUT — LISTENING';
+  voiceAmp=20;
+  addLog('[MIC] Voice input activated','warn');
+  recognition.onresult=e=>{
+    const last=e.results[e.results.length-1];
+    const txt=last[0].transcript;
+    if(overlay)document.getElementById('voTranscript').textContent=txt;
+    if(last.isFinal){
+      stopListening();
+      handleCommand(txt);
+      if(overlay)closeVoiceMode();
+    }
+  };
+  recognition.onerror=e=>{stopListening();addLog('[MIC] Error: '+e.error,'warn');};
+  recognition.onend=()=>{if(isListening)stopListening();};
+  try{recognition.start();}catch(e){}
+}
+
+function stopListening(){
+  isListening=false;
+  micBtn.classList.remove('active');
+  vizLabel.textContent='AUDIO SPECTRUM — IDLE';
+  voiceAmp=0;
+  try{if(recognition)recognition.stop();}catch(e){}
+  resumeWakeWord();
+}
+
+document.getElementById('voiceMode-fallback');
+function openVoiceOverlay(){
+  voiceOverlayOpen=true;
+  document.getElementById('voiceOverlay').classList.add('show');
+  document.getElementById('voStatus').textContent='LISTENING...';
+  document.getElementById('voTranscript').textContent='Say something...';
+  voiceAmp=20;
+  drawVoiceWave();
+  startListening(true);
+}
+function closeVoiceMode(){
+  voiceOverlayOpen=false;
+  document.getElementById('voiceOverlay').classList.remove('show');
+  stopListening();
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeVoiceMode();});
+micBtn.addEventListener('click',()=>{isListening?stopListening():startListening(false);});
+
+ttsToggle.addEventListener('click',()=>{
+  ttsEnabled=!ttsEnabled;
+  ttsToggle.classList.toggle('on',ttsEnabled);
+  ttsStatus.textContent=ttsEnabled?'ON — American voice active':'OFF — silent mode';
+  if(!ttsEnabled)window.speechSynthesis.cancel();
+});
+
+// ---------- Wake word: "Hey Jarvis" ----------
+let wakeRecognition = null;
+let wakeActive = false;   // user has toggled wake word on
+let wakeRunning = false;  // recognition instance currently running
+const wakeSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+const isIOSDevice = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+function startWakeWordListener(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ return; }
+  if(!wakeRecognition){
+    wakeRecognition = new SR();
+    wakeRecognition.lang='en-US';
+    wakeRecognition.continuous=true;
+    wakeRecognition.interimResults=true;
+    wakeRecognition.onresult=(e)=>{
+      let transcript='';
+      for(let i=e.resultIndex;i<e.results.length;i++) transcript += e.results[i][0].transcript;
+      transcript = transcript.toLowerCase();
+      if(transcript.includes('hey jarvis') || transcript.includes('hey, jarvis') || transcript.includes('jarvis wake') || transcript.includes('jarvis')){
+        try{ wakeRecognition.stop(); }catch(e){}
+        reply('Yes, sir?');
+        setTimeout(()=>{ if(wakeActive) openVoiceOverlay(); }, 450);
+      }
+    };
+    wakeRecognition.onend=()=>{
+      wakeRunning=false;
+      // Chrome on Android silently ends this after a short stretch of silence —
+      // that is normal, so re-arm almost instantly rather than treating it as a fault.
+      if(wakeActive && !isListening && !voiceOverlayOpen){
+        setTimeout(()=>{ if(wakeActive) startWakeWordListener(); }, 120);
+      }
+    };
+    wakeRecognition.onerror=(e)=>{
+      wakeRunning=false;
+      if(!wakeActive) return;
+      if(e.error==='no-speech' || e.error==='aborted'){
+        setTimeout(()=>{ if(wakeActive) startWakeWordListener(); }, 150);
+      } else if(e.error==='not-allowed' || e.error==='service-not-allowed'){
+        wakeActive=false;
+        wakeBtn.classList.remove('active');
+        document.getElementById('wakeStatusText').textContent='mic blocked';
+        reply('I need microphone permission to listen for my wake word, sir. Please allow microphone access for this site and try again.');
+      } else {
+        setTimeout(()=>{ if(wakeActive) startWakeWordListener(); }, 1000);
+      }
+    };
+  }
+  if(wakeRunning) return;
+  try{ wakeRecognition.start(); wakeRunning=true; addLog('[WAKE] Armed — listening for "Hey Jarvis"','ok'); }catch(e){}
+}
+function pauseWakeWord(){
+  if(wakeRecognition && wakeRunning){ try{ wakeRecognition.stop(); }catch(e){} wakeRunning=false; }
+}
+function resumeWakeWord(){
+  if(wakeActive && !voiceOverlayOpen) setTimeout(startWakeWordListener, 150);
+}
+wakeBtn.addEventListener('click', async ()=>{
+  if(!wakeSupported){
+    reply(isIOSDevice
+      ? 'Continuous wake-word listening is not something Safari on iPhone supports yet, sir — that is an Apple platform restriction, not something I can code around. Chrome on Android handles it natively.'
+      : 'This browser does not expose the speech recognition API I need for wake-word detection, sir. Please try Chrome on Android.');
+    return;
+  }
+  wakeActive=!wakeActive;
+  wakeBtn.classList.toggle('active',wakeActive);
+  document.getElementById('wakeStatusText').textContent = wakeActive ? 'armed' : 'off';
+  if(wakeActive){
+    try{ const s = await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t=>t.stop()); }catch(e){}
+    startWakeWordListener();
+  } else {
+    pauseWakeWord(); addLog('[WAKE] Wake word mode disabled','warn');
+  }
+});
+
+// ---------- AR camera overlay mode ----------
+let arActive=false, arStream=null;
+async function toggleAR(){
+  if(arActive){
+    if(arStream){ arStream.getTracks().forEach(t=>t.stop()); }
+    const v=document.getElementById('arVideo'); v.classList.remove('show'); v.srcObject=null;
+    document.body.classList.remove('ar-mode');
+    document.getElementById('arHint').classList.remove('show');
+    arActive=false; arBtn.classList.remove('active'); arBtn.textContent='AR MODE';
+    document.getElementById('arStatusText').textContent='standby';
+    if(!gogglesActive) perfSaveMode=false;
+    addLog('[AR] Camera overlay deactivated','warn');
+    return;
+  }
+  const attempts = [
+    { label:'4K', video:{ facingMode:{ideal:'environment'}, width:{ideal:3840}, height:{ideal:2160}, frameRate:{ideal:60,max:60} } },
+    { label:'1080p', video:{ facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}, frameRate:{ideal:60,max:60} } },
+    { label:'default', video:{ facingMode:{ideal:'environment'} } }
+  ];
+  let lastErr=null;
+  for(const attempt of attempts){
+    try{
+      arStream = await navigator.mediaDevices.getUserMedia({ video:attempt.video, audio:false });
+      addLog('[AR] Camera acquired — requested '+attempt.label,'info');
+      break;
+    }catch(err){ lastErr=err; arStream=null; }
+  }
+  if(!arStream){
+    reply('I could not access the camera for augmented reality mode, sir. Please grant camera permission and ensure this page is served over HTTPS.');
+    addLog('[AR] Camera access denied','warn');
+    return;
+  }
+  try{
+    const v=document.getElementById('arVideo');
+    v.srcObject=arStream; v.classList.add('show');
+    document.body.classList.add('ar-mode');
+    document.getElementById('arHint').classList.add('show');
+    arActive=true; arBtn.classList.add('active'); arBtn.textContent='EXIT AR';
+    document.getElementById('arStatusText').textContent='live';
+    perfSaveMode=true;
+    const track = arStream.getVideoTracks()[0];
+    const settings = track && track.getSettings ? track.getSettings() : {};
+    const resLabel = settings.width && settings.height ? `${settings.width}×${settings.height}` : 'unknown res';
+    const fpsLabel = settings.frameRate ? Math.round(settings.frameRate)+'fps' : '?fps';
+    document.getElementById('arHint').textContent = `AR MODE — ${fpsLabel}`;
+    addLog('[AR] Camera passthrough engaged @ '+resLabel+' / '+fpsLabel,'ok');
+    requestOrientationPermission();
+  }catch(err){
+    reply('I could not access the camera for augmented reality mode, sir. Please grant camera permission and ensure this page is served over HTTPS.');
+    addLog('[AR] Camera access denied','warn');
+  }
+}
+arBtn.addEventListener('click', toggleAR);
+
+// ---------- Device orientation parallax (Vision-Pro style depth) ----------
+let orientationEnabled=false;
+function requestOrientationPermission(){
+  if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+    DeviceOrientationEvent.requestPermission().then(state=>{
+      if(state==='granted') enableOrientation();
+    }).catch(()=>{});
+  } else {
+    enableOrientation();
+  }
+}
+function enableOrientation(){
+  if(orientationEnabled) return;
+  orientationEnabled=true;
+  window.addEventListener('deviceorientation', onOrientation);
+}
+function onOrientation(e){
+  const tiltX = Math.max(-30,Math.min(30, (e.beta||0)-45));
+  const tiltY = Math.max(-30,Math.min(30, e.gamma||0));
+  const ring = document.getElementById('orbitRing');
+  if(ring) ring.style.transform = `rotateX(${(-tiltX/6)}deg) rotateY(${tiltY/6}deg)`;
+  document.querySelectorAll('.panel').forEach(p=>{
+    p.style.transform = `rotateX(${(-tiltX/25)}deg) rotateY(${tiltY/25}deg)`;
+  });
+}
+// Also request orientation once on first user tap, in case AR isn't used
+document.body.addEventListener('click', function once(){ requestOrientationPermission(); document.body.removeEventListener('click', once); }, {once:true});
+
+// ---------- Floating orbit icon clicks ----------
+document.querySelectorAll('.orbit-icon').forEach(el=>{
+  el.addEventListener('click',()=>{
+    const cmd = el.getAttribute('data-cmd');
+    if(cmd==='__mic__'){ voiceOverlayOpen?closeVoiceMode():openVoiceOverlay(); return; }
+    handleCommand(cmd);
+  });
+});
+
+// ---------- Particle system ----------
+const pCanvas = document.createElement('canvas');
+pCanvas.id = 'particleCanvas';
+document.body.appendChild(pCanvas);
+const pCtx = pCanvas.getContext('2d');
+const particles = [];
+function resizePC(){ pCanvas.width=window.innerWidth; pCanvas.height=window.innerHeight; }
+resizePC(); window.addEventListener('resize', resizePC);
+class Particle {
+  constructor(){this.reset(true);}
+  reset(init=false){
+    this.x = Math.random()*pCanvas.width;
+    this.y = init ? Math.random()*pCanvas.height : pCanvas.height+10;
+    this.vx = (Math.random()-0.5)*0.3;
+    this.vy = -(0.3+Math.random()*0.7);
+    this.life = 1; this.decay = 0.002+Math.random()*0.004;
+    this.size = 0.5+Math.random()*1.5;
+    this.hue = 180+Math.random()*40;
+  }
+  update(){
+    this.x+=this.vx; this.y+=this.vy; this.life-=this.decay;
+    if(this.life<=0||this.y<-10) this.reset();
+  }
+  draw(){
+    pCtx.globalAlpha=this.life*0.6;
+    pCtx.fillStyle=`hsla(${this.hue},100%,70%,1)`;
+    pCtx.beginPath(); pCtx.arc(this.x,this.y,this.size,0,Math.PI*2); pCtx.fill();
+  }
+}
+for(let i=0;i<80;i++) particles.push(new Particle());
+let particleLastFrame=0;
+function animParticles(ts=0){
+  if(ts-particleLastFrame < FRAME_BUDGET_MS){ requestAnimationFrame(animParticles); return; }
+  particleLastFrame += FRAME_BUDGET_MS;
+  if(ts-particleLastFrame > FRAME_BUDGET_MS*2) particleLastFrame=ts;
+  if(!perfSaveMode){
+    pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
+    particles.forEach(p=>{p.update();p.draw();});
+    pCtx.globalAlpha=1;
+  }
+  requestAnimationFrame(animParticles);
+}
+animParticles();
+
+// ---------- Dial Engine ----------
+function makeDial(canvasId, labelId, min, max, initVal, decimals, onChange) {
+  const canvas = document.getElementById(canvasId);
+  const label = document.getElementById(labelId);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, cx = W/2, cy = H/2, R = W/2 - 4;
+  const startAngle = Math.PI * 0.75;
+  const totalArc = Math.PI * 1.5;
+  let value = initVal;
+  let dragging = false, lastY = 0;
+  function norm(v){ return (v-min)/(max-min); }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const n = norm(value);
+    const endA = startAngle + totalArc * n;
+    ctx.beginPath();
+    ctx.arc(cx,cy,R,startAngle,startAngle+totalArc);
+    ctx.strokeStyle='rgba(0,200,255,0.12)';
+    ctx.lineWidth=3; ctx.lineCap='round'; ctx.stroke();
+    const grad = ctx.createLinearGradient(0,0,W,H);
+    grad.addColorStop(0,'rgba(0,200,255,0.5)');
+    grad.addColorStop(1,'#00c8ff');
+    ctx.beginPath();
+    ctx.arc(cx,cy,R,startAngle,endA);
+    ctx.strokeStyle=grad;
+    ctx.lineWidth=3; ctx.lineCap='round';
+    ctx.shadowColor='#00c8ff'; ctx.shadowBlur=8;
+    ctx.stroke(); ctx.shadowBlur=0;
+    for(let i=0;i<=8;i++){
+      const a = startAngle + totalArc*(i/8);
+      const inner = R-6, outer = R+1;
+      ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(a)*inner, cy+Math.sin(a)*inner);
+      ctx.lineTo(cx+Math.cos(a)*(i%4===0?outer-2:inner-3), cy+Math.sin(a)*(i%4===0?outer-2:inner-3));
+      ctx.strokeStyle = i<=n*8 ? 'rgba(0,200,255,0.7)' : 'rgba(0,200,255,0.2)';
+      ctx.lineWidth=1; ctx.stroke();
+    }
+    const knobA = startAngle + totalArc * n;
+    const kr = R - 2;
+    ctx.beginPath();
+    ctx.arc(cx+Math.cos(knobA)*kr, cy+Math.sin(knobA)*kr, 3.5, 0, Math.PI*2);
+    ctx.fillStyle='#00c8ff';
+    ctx.shadowColor='#00c8ff'; ctx.shadowBlur=10;
+    ctx.fill(); ctx.shadowBlur=0;
+    ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,200,255,0.3)'; ctx.fill();
+    label.textContent = value.toFixed(decimals);
+  }
+  function clamp(v){ return Math.max(min, Math.min(max, v)); }
+  function onDown(e){ dragging=true; lastY = e.touches ? e.touches[0].clientY : e.clientY; e.preventDefault(); }
+  function onMove(e){
+    if(!dragging) return;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    const delta = (lastY - y) * (max-min) / 100;
+    value = clamp(value + delta);
+    lastY = y;
+    draw(); onChange(value);
+  }
+  function onUp(){ dragging=false; }
+  canvas.addEventListener('mousedown', onDown);
+  canvas.addEventListener('touchstart', onDown, {passive:false});
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('mouseup', onUp);
+  window.addEventListener('touchend', onUp);
+  canvas.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const step = (max-min)/40;
+    value = clamp(value + (e.deltaY<0 ? step : -step));
+    draw(); onChange(value);
+  }, {passive:false});
+  draw();
+  return { setValue: v=>{ value=clamp(v); draw(); }, getValue:()=>value };
+}
+makeDial('rateCanvas','rateLabel', 0.6, 1.4, 0.88, 2, v=>{ speechRate=v; });
+makeDial('pitchCanvas','pitchLabel', 0.4, 1.2, 0.85, 2, v=>{ speechPitch=v; });
+makeDial('volCanvas','volLabel', 0.0, 1.0, 1.0, 2, v=>{ speechVolume=v; });
+
+document.getElementById('testVoiceBtn').addEventListener('click', ()=>{
+  window.speechSynthesis.cancel();
+  const phrases = [
+    'Voice calibration complete, sir. All systems nominal.',
+    'Reactor output is stable. Standing by.',
+    'Running diagnostics. Everything checks out.',
+    'Ready and online, sir.',
+  ];
+  const txt = phrases[Math.floor(Math.random()*phrases.length)];
+  const u = new SpeechSynthesisUtterance(txt);
+  const voices = window.speechSynthesis.getVoices();
+  const preferred=['Microsoft Guy','Microsoft David','Google US English','Reed','Alex','Aaron','Fred'];
+  let chosen = null;
+  for(const p of preferred){ chosen=voices.find(v=>v.name.includes(p)); if(chosen)break; }
+  if(!chosen) chosen = voices.find(v=>v.lang==='en-US')||voices[0];
+  if(chosen) u.voice = chosen;
+  u.rate = speechRate; u.pitch = speechPitch; u.volume = speechVolume;
+  window.speechSynthesis.speak(u);
+  addLog('[VOICE] Test fired — rate:'+speechRate.toFixed(2)+' pitch:'+speechPitch.toFixed(2),'ok');
+});
+
+// ---------- Settings modal ----------
+const settingsOverlay = document.getElementById('settingsOverlay');
+function syncSettingsFieldVisibility(){
+  const p = document.getElementById('providerSelect').value;
+  document.getElementById('geminiFields').style.display = p==='gemini' ? 'block' : 'none';
+  document.getElementById('groqFields').style.display = p==='groq' ? 'block' : 'none';
+}
+document.getElementById('settingsBtn').addEventListener('click', ()=>{
+  document.getElementById('providerSelect').value = aiProvider;
+  document.getElementById('geminiKeyInput').value = geminiApiKey;
+  document.getElementById('geminiModelSelect').value = geminiModel;
+  document.getElementById('groqKeyInput').value = groqApiKey;
+  document.getElementById('groqModelSelect').value = groqModel;
+  syncSettingsFieldVisibility();
+  settingsOverlay.classList.add('show');
+});
+document.getElementById('providerSelect').addEventListener('change', syncSettingsFieldVisibility);
+document.getElementById('settingsCancel').addEventListener('click', ()=> settingsOverlay.classList.remove('show'));
+document.getElementById('settingsSave').addEventListener('click', ()=>{
+  aiProvider = document.getElementById('providerSelect').value;
+  geminiApiKey = document.getElementById('geminiKeyInput').value.trim();
+  geminiModel = document.getElementById('geminiModelSelect').value;
+  groqApiKey = document.getElementById('groqKeyInput').value.trim() || BUILTIN_GROQ_KEY;
+  groqModel = document.getElementById('groqModelSelect').value;
+  localStorage.setItem('jarvis_provider', aiProvider);
+  localStorage.setItem('jarvis_gemini_key', geminiApiKey);
+  localStorage.setItem('jarvis_gemini_model', geminiModel);
+  localStorage.setItem('jarvis_groq_key', groqApiKey);
+  localStorage.setItem('jarvis_groq_model', groqModel);
+  refreshGeminiStatus();
+  settingsOverlay.classList.remove('show');
+  addLog('[SYS] Configuration updated — provider: '+aiProvider,'ok');
+  const hasKey = aiProvider==='groq' ? !!groqApiKey : !!geminiApiKey;
+  if(hasKey) reply(`Neural core linked via ${aiProvider==='groq'?'Groq':'Gemini'}, sir. Ready when you are.`);
+});
+
+// ---------- Neural core dispatch (Gemini / Groq) ----------
+async function askJarvis(question){
+  const usingGroq = aiProvider==='groq';
+  const key = usingGroq ? groqApiKey : geminiApiKey;
+  if(!key){
+    reply(`I require a ${usingGroq?'Groq':'Gemini'} API key to access my neural core, sir. Tap the gear icon to add one.`);
+    settingsOverlay.classList.add('show');
+    return;
+  }
+  showTyping();
+  addLog('[AI] Query dispatched to '+(usingGroq?'Groq':'Gemini')+' neural core','info');
+  try{
+    const text = usingGroq ? await askGroq(question) : await askGemini(question);
+    removeTyping();
+    addMsg('jarvis', text); jarvisSpeak(text);
+    addLog('[AI] Response delivered','ok');
+  }catch(err){
+    removeTyping();
+    const e = err && err.userMessage ? err.userMessage : 'I am unable to reach my neural core at the moment, sir. Please verify your network connection.';
+    addMsg('jarvis',e); jarvisSpeak(e);
+    addLog('[AI] '+(err && err.logMessage ? err.logMessage : 'Network fault — fallback'),'warn');
+  }
+}
+
+async function askGemini(question){
+  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      system_instruction:{ parts:[{ text: JARVIS_SYSTEM_PROMPT }] },
+      contents:[{ role:'user', parts:[{ text: question }] }],
+      generationConfig:{ maxOutputTokens:400, temperature:0.8 }
+    })
+  });
+  if(!resp.ok){
+    const errBody = await resp.json().catch(()=>({}));
+    const msg = errBody?.error?.message || ('HTTP '+resp.status);
+    const e = new Error(msg);
+    e.logMessage = 'Gemini error: '+msg;
+    e.userMessage = 'My neural core rejected that request, sir. '+(resp.status===400?'The API key may be invalid.':'Please try again shortly.');
+    throw e;
+  }
+  const data = await resp.json();
+  return data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')?.trim() || 'I encountered an anomaly processing that request, sir.';
+}
+
+async function askGroq(question){
+  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+groqApiKey},
+    body:JSON.stringify({
+      model: groqModel,
+      messages:[
+        { role:'system', content: JARVIS_SYSTEM_PROMPT },
+        { role:'user', content: question }
+      ],
+      max_tokens:400,
+      temperature:0.8
+    })
+  });
+  if(!resp.ok){
+    const errBody = await resp.json().catch(()=>({}));
+    const msg = errBody?.error?.message || ('HTTP '+resp.status);
+    const e = new Error(msg);
+    e.logMessage = 'Groq error: '+msg;
+    e.userMessage = 'My neural core rejected that request, sir. '+(resp.status===401?'The Groq API key may be invalid.':'Please try again shortly.');
+    throw e;
+  }
+  const data = await resp.json();
+  return data?.choices?.[0]?.message?.content?.trim() || 'I encountered an anomaly processing that request, sir.';
+}
+
+function reply(text){addMsg('jarvis',text);jarvisSpeak(text);}
+
+// ---------- Goggles mode: stereo split-screen for phone-in-headset AR ----------
+const gogglesBtn = document.getElementById('gogglesBtn');
+const gogglesOverlay = document.getElementById('gogglesOverlay');
+let gogglesActive=false;
+let wakeLockRef=null;
+let gazeTargetEl=null, gazeStart=0, gazeRAF=null;
+let paneIconCache=[]; // cached {pane, icons:[...]} built once per buildEyePanes() call
+const GAZE_DWELL_MS=1400;
+
+function buildEyePanes(){
+  paneIconCache=[];
+  ['eyeLeft','eyeRight'].forEach(id=>{
+    const pane=document.getElementById(id);
+    pane.innerHTML='';
+    const v=document.createElement('video');
+    v.autoplay=true; v.playsInline=true; v.muted=true;
+    if(arStream) v.srcObject=arStream;
+    pane.appendChild(v);
+    const orbitClone = document.getElementById('orbitRing').cloneNode(true);
+    const wrap=document.createElement('div'); wrap.className='eye-orbit-wrap';
+    wrap.appendChild(orbitClone);
+    pane.appendChild(wrap);
+
+    // Vertical Vision-Pro style floating screen showing the live Jarvis feed
+    const screenPanel=document.createElement('div'); screenPanel.className='goggle-screen';
+    screenPanel.innerHTML = '<div class="goggle-screen-header"><span>JARVIS</span><span class="goggle-screen-dot"></span></div><div class="goggle-screen-msgs"></div>';
+    pane.appendChild(screenPanel);
+
+    const cross=document.createElement('div'); cross.className='eye-crosshair';
+    pane.appendChild(cross);
+    const status=document.createElement('div'); status.className='eye-status';
+    status.textContent='GAZE OR PINCH TO SELECT — SAY "HEY JARVIS"';
+    pane.appendChild(status);
+    const handStatus=document.createElement('div'); handStatus.className='hand-status';
+    handStatus.textContent='HAND TRACKING — INIT';
+    pane.appendChild(handStatus);
+    const pinchCursor=document.createElement('div'); pinchCursor.className='pinch-cursor';
+    pane.appendChild(pinchCursor);
+
+    paneIconCache.push({ pane, icons:[...pane.querySelectorAll('.orbit-icon-inner')] });
+  });
+  renderGogglePanels();
+}
+
+function triggerGazeCommand(cmd){
+  if(!cmd) return;
+  if(cmd==='__mic__'){ voiceOverlayOpen?closeVoiceMode():openVoiceOverlay(); return; }
+  handleCommand(cmd);
+}
+
+function highlightIcon(idx){
+  paneIconCache.forEach(p=>{ p.icons.forEach(i=>i.classList.remove('gaze-target')); });
+  if(idx<0) return;
+  paneIconCache.forEach(p=>{ if(p.icons[idx]) p.icons[idx].classList.add('gaze-target'); });
+}
+
+function startGazeLoop(){
+  gazeTargetEl=null; gazeStart=0;
+  let lastFrame=0;
+  function loop(ts){
+    if(!gogglesActive) return;
+    if(ts-lastFrame < FRAME_BUDGET_MS){ gazeRAF=requestAnimationFrame(loop); return; }
+    lastFrame += FRAME_BUDGET_MS;
+    if(ts-lastFrame > FRAME_BUDGET_MS*2) lastFrame=ts; // resync after a stall (e.g. tab backgrounded)
+    const ref = paneIconCache[0];
+    if(!ref){ gazeRAF=requestAnimationFrame(loop); return; }
+    const rect = ref.pane.getBoundingClientRect();
+    const cx = rect.left+rect.width/2, cy = rect.top+rect.height/2;
+    let closest=null, closestDist=Infinity, closestIdx=-1;
+    ref.icons.forEach((icon,i)=>{
+      const r=icon.getBoundingClientRect();
+      const ix=r.left+r.width/2, iy=r.top+r.height/2;
+      const d=Math.hypot(ix-cx, iy-cy);
+      if(d<closestDist){ closestDist=d; closest=icon; closestIdx=i; }
+    });
+    if(closest && closestDist<75){
+      highlightIcon(closestIdx);
+      if(gazeTargetEl!==closest){ gazeTargetEl=closest; gazeStart=performance.now(); }
+      else if(performance.now()-gazeStart > GAZE_DWELL_MS){
+        const cmd = closest.parentElement.getAttribute('data-cmd');
+        gazeTargetEl=null; gazeStart=0;
+        triggerGazeCommand(cmd);
+      }
+    } else {
+      highlightIcon(-1);
+      gazeTargetEl=null; gazeStart=0;
+    }
+    gazeRAF=requestAnimationFrame(loop);
+  }
+  gazeRAF=requestAnimationFrame(loop);
+}
+function stopGazeLoop(){
+  if(gazeRAF) cancelAnimationFrame(gazeRAF);
+  gazeRAF=null;
+  highlightIcon(-1);
+}
+
+gogglesOverlay.addEventListener('click',(e)=>{
+  if(e.target.closest('#gogglesExit')) return;
+  if(gazeTargetEl) triggerGazeCommand(gazeTargetEl.parentElement.getAttribute('data-cmd'));
+});
+
+// ---------- Pinch-to-select hand tracking (best effort — lazy loaded) ----------
+let handLandmarker=null, handRAF=null, handTrackingReady=false;
+let wasPinching=false, pinchCooldownUntil=0;
+const PINCH_THRESHOLD=0.06, PINCH_RELEASE=0.09;
+
+async function startHandTracking(){
+  const statusEls = ()=>document.querySelectorAll('.hand-status');
+  statusEls().forEach(el=>el.textContent='HAND TRACKING — LOADING');
+  try{
+    const vision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');
+    const filesetResolver = await vision.FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+    );
+    handLandmarker = await vision.HandLandmarker.createFromOptions(filesetResolver,{
+      baseOptions:{
+        modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+        delegate:'GPU'
+      },
+      runningMode:'VIDEO',
+      numHands:1
+    });
+    handTrackingReady=true;
+    statusEls().forEach(el=>el.textContent='HAND TRACKING — READY, SHOW YOUR HAND');
+    addLog('[HANDS] Pinch gesture tracking online','ok');
+    handRAF=requestAnimationFrame(handLoop);
+  }catch(err){
+    statusEls().forEach(el=>el.textContent='HAND TRACKING UNAVAILABLE — USING GAZE ONLY');
+    addLog('[HANDS] Could not load hand tracking — gaze-dwell only','warn');
+  }
+}
+
+function mapVideoNormToScreen(nx, ny, videoEl, mirrored){
+  // videoEl is styled with object-fit:cover, so the visible frame is a centre-cropped
+  // window of the source video — map normalized (0..1) landmark coords through that crop.
+  const rect = videoEl.getBoundingClientRect();
+  const vw = videoEl.videoWidth || rect.width, vh = videoEl.videoHeight || rect.height;
+  const elemAR = rect.width/rect.height, videoAR = vw/vh;
+  let cropX=0, cropY=0, cropW=vw, cropH=vh;
+  if(videoAR > elemAR){ cropW = vh*elemAR; cropX = (vw-cropW)/2; }
+  else { cropH = vw/elemAR; cropY = (vh-cropH)/2; }
+  let px = nx; if(mirrored) px = 1-px;
+  const sx = rect.left + ((px*vw - cropX)/cropW) * rect.width;
+  const sy = rect.top + ((ny*vh - cropY)/cropH) * rect.height;
+  return {x:sx, y:sy};
+}
+
+let lastHandFrame=0;
+function handLoop(ts){
+  if(!gogglesActive){ handRAF=null; return; }
+  if(ts-lastHandFrame < FRAME_BUDGET_MS){ handRAF=requestAnimationFrame(handLoop); return; }
+  lastHandFrame += FRAME_BUDGET_MS;
+  if(ts-lastHandFrame > FRAME_BUDGET_MS*2) lastHandFrame=ts;
+  const videoEl = paneIconCache[0] && paneIconCache[0].pane.querySelector('video');
+  if(videoEl && handLandmarker && videoEl.readyState>=2){
+    try{
+      const result = handLandmarker.detectForVideo(videoEl, ts);
+      if(result && result.landmarks && result.landmarks.length>0){
+        const lm = result.landmarks[0];
+        const thumb = lm[4], index = lm[8];
+        const dist = Math.hypot(thumb.x-index.x, thumb.y-index.y, (thumb.z-index.z)*0.5);
+        const pt = mapVideoNormToScreen(index.x, index.y, videoEl, false);
+        const leftRect = videoEl.getBoundingClientRect();
+        const fracX = (pt.x-leftRect.left)/leftRect.width, fracY=(pt.y-leftRect.top)/leftRect.height;
+        let hitIdx=-1, hitCmd=null;
+        const ref = paneIconCache[0];
+        document.querySelectorAll('.eye-pane').forEach((paneEl,pi)=>{
+          const r = paneEl.getBoundingClientRect();
+          const cursor = paneEl.querySelector('.pinch-cursor');
+          if(cursor){
+            cursor.style.display='block';
+            cursor.style.left = (r.left + fracX*r.width) + 'px';
+            cursor.style.top = (r.top + fracY*r.height) + 'px';
+          }
+          if(pi===0 && ref){
+            const px = r.left + fracX*r.width, py = r.top + fracY*r.height;
+            ref.icons.forEach((icon,i)=>{
+              const ir=icon.getBoundingClientRect();
+              if(px>=ir.left-10 && px<=ir.right+10 && py>=ir.top-10 && py<=ir.bottom+10){
+                hitIdx=i; hitCmd=icon.parentElement.getAttribute('data-cmd');
+              }
+            });
+          }
+        });
+        const isPinching = dist < PINCH_THRESHOLD;
+        document.querySelectorAll('.pinch-cursor').forEach(c=>c.classList.toggle('active', isPinching));
+        if(hitIdx>=0) highlightIcon(hitIdx);
+        if(isPinching && !wasPinching && hitCmd && performance.now()>pinchCooldownUntil){
+          wasPinching=true;
+          pinchCooldownUntil = performance.now()+900;
+          triggerGazeCommand(hitCmd);
+        } else if(dist > PINCH_RELEASE){
+          wasPinching=false;
+        }
+      } else {
+        document.querySelectorAll('.pinch-cursor').forEach(c=>c.style.display='none');
+      }
+    }catch(e){ /* silent per-frame errors — keep the loop alive */ }
+  }
+  handRAF=requestAnimationFrame(handLoop);
+}
+function stopHandTracking(){
+  if(handRAF) cancelAnimationFrame(handRAF);
+  handRAF=null;
+  document.querySelectorAll('.pinch-cursor').forEach(c=>c.style.display='none');
+}
+
+async function enterGoggles(){
+  if(gogglesActive) return;
+  gogglesActive=true;
+  perfSaveMode=true;
+  if(!arActive){ await toggleAR(); }
+  if(!arActive){ gogglesActive=false; return; } // camera permission was denied
+  if(!wakeActive && wakeSupported){ wakeBtn.click(); }
+  buildEyePanes();
+  gogglesOverlay.classList.add('show');
+  gogglesBtn.classList.add('active');
+  try{ await document.documentElement.requestFullscreen(); }catch(e){}
+  try{ if('wakeLock' in navigator) wakeLockRef = await navigator.wakeLock.request('screen'); }catch(e){}
+  requestOrientationPermission();
+  startGazeLoop();
+  startHandTracking();
+  addLog('[GOGGLES] Stereo AR mode engaged','ok');
+  reply('Goggles mode engaged, sir. Pinch an icon to select it, gaze also works, or simply speak your command.');
+}
+
+function exitGoggles(){
+  if(!gogglesActive) return;
+  gogglesActive=false;
+  perfSaveMode = arActive; // stay lean if plain AR is still on, otherwise resume normal fx
+  gogglesOverlay.classList.remove('show');
+  gogglesBtn.classList.remove('active');
+  stopGazeLoop();
+  stopHandTracking();
+  if(wakeLockRef){ wakeLockRef.release().catch(()=>{}); wakeLockRef=null; }
+  if(document.fullscreenElement){ document.exitFullscreen().catch(()=>{}); }
+  addLog('[GOGGLES] Stereo AR mode disengaged','warn');
+}
+gogglesBtn.addEventListener('click', ()=> gogglesActive?exitGoggles():enterGoggles());
+document.getElementById('gogglesExit').addEventListener('click', exitGoggles);
+document.addEventListener('fullscreenchange', ()=>{ if(!document.fullscreenElement && gogglesActive) exitGoggles(); });
+
+async function handleCommand(raw){
+  const cmd=raw.trim();if(!cmd)return;
+  addMsg('user',cmd);
+  const lc=cmd.toLowerCase();
+  addLog('[CMD] Input received','info');
+
+  if(['exit','quit','bye','shutdown'].some(w=>lc.includes(w))){reply('Initiating shutdown sequence. It has been a pleasure, sir.');return;}
+  if(lc==='time'||lc.includes('what time')){const t=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});reply(`The current time is ${t}, sir.`);return;}
+  if(lc==='date'||lc.includes('what day')||lc.includes('what\'s the date')){const d=new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});reply(`Today is ${d}.`);return;}
+  if(lc==='diagnostics'||lc==='system status'||lc==='status'){const cpu=document.getElementById('cpuVal').textContent,mem=document.getElementById('memVal').textContent;reply(`All systems nominal, sir. CPU at ${cpu}, memory utilisation at ${mem}. Arc reactor operating at optimal capacity. No anomalies detected.`);return;}
+  if(lc.includes('joke')){reply(jokes[Math.floor(Math.random()*jokes.length)]);return;}
+  if(lc==='help'){reply('You may ask me anything, sir. I can report the time, date, run diagnostics, tell a joke, open websites, search the web, or answer questions through my Gemini-powered neural core.');return;}
+  if(lc.startsWith('search ')){const q=cmd.slice(7).trim();if(!q){reply('What would you like me to search for, sir?');return;}reply(`Initiating web search for "${q}", sir.`);window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`,'_blank');return;}
+  if(lc.startsWith('open ')){const target=lc.slice(5).trim();if(sites[target]){reply(`Opening ${target} for you, sir.`);window.open(sites[target],'_blank');return;}if(target.includes('.')){reply(`Navigating to ${target}, sir.`);window.open('https://'+target,'_blank');return;}reply(`I am not familiar with that destination, sir. I can open YouTube, Google, Gmail, GitHub, ChatGPT, Netflix, Twitter, Reddit, or Spotify.`);return;}
+  if(lc.includes('who are you')||lc==='identify yourself'){reply('I am Jarvis — Just A Rather Very Intelligent System. Personal AI assistant. At your service, sir.');return;}
+  if(['hello','hi','hey','good morning','good afternoon','good evening'].some(w=>lc.startsWith(w))){const h=new Date().getHours();const g=h<12?'Good morning':h<18?'Good afternoon':'Good evening';reply(`${g}, sir. All systems are online and operating within normal parameters. How may I assist you?`);return;}
+  await askJarvis(cmd);
+}
+
+// Init
+setTimeout(()=>{
+  const h=new Date().getHours();const g=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
+  const text=`${g}, sir. Jarvis online. All systems are nominal and standing by for your instructions.`;
+  addMsg('jarvis',text);jarvisSpeak(text);
+  if(!geminiApiKey){ setTimeout(()=>{ reply('I notice no Gemini API key is configured, sir. Tap the gear icon whenever you would like to link my neural core.'); }, 2600); }
+},800);
+
+sendBtn.addEventListener('click',()=>{handleCommand(cmdInput.value);cmdInput.value='';});
+cmdInput.addEventListener('keydown',e=>{if(e.key==='Enter'){handleCommand(cmdInput.value);cmdInput.value='';}});
+document.querySelectorAll('.cmd-btn').forEach(btn=>{btn.addEventListener('click',()=>handleCommand(btn.textContent.trim()));});
+</script>
+</body>
+</html>

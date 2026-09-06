@@ -1,0 +1,16 @@
+{
+  "name": "J.A.R.V.I.S — AR Assistant",
+  "short_name": "Jarvis",
+  "description": "Iron Man style AR HUD assistant with voice, wake word, and stereo goggles mode.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020d18",
+  "theme_color": "#020d18",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
