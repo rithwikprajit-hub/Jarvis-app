@@ -115,6 +115,14 @@
   /* ---------- Goggles / stereo split-screen AR mode ---------- */
   #gogglesOverlay{display:none;position:fixed;inset:0;background:#000;z-index:2000;flex-direction:row;}
   #gogglesOverlay.show{display:flex;}
+  #rotateHint{display:none;position:fixed;inset:0;z-index:2001;background:#000;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--hud);text-align:center;padding:40px;font-family:'Rajdhani',sans-serif;letter-spacing:1px;}
+  #rotateHint svg{animation:rotateHintSpin 1.8s ease-in-out infinite;}
+  #rotateHint .rotate-sub{color:var(--muted);font-size:13px;max-width:320px;line-height:1.5;}
+  @keyframes rotateHintSpin{0%,20%{transform:rotate(0deg);}50%,70%{transform:rotate(-90deg);}100%{transform:rotate(-90deg);}}
+  @media(orientation:portrait){
+    #gogglesOverlay.show #rotateHint{display:flex;}
+    #gogglesOverlay.show .eye-pane,#gogglesOverlay.show #gogglesExit{visibility:hidden;}
+  }
   .eye-pane{position:relative;flex:1;height:100%;overflow:hidden;border-right:1px solid rgba(0,200,255,0.15);background:#000;}
   .eye-pane:last-child{border-right:none;}
   .eye-pane video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
@@ -131,7 +139,10 @@
   body.ar-mode .orbit-icon-extra{display:none;}
 
   /* Vertical Vision-Pro style floating "screen" panel showing the main Jarvis feed */
-  .goggle-screen{position:absolute;top:50%;left:50%;transform:translate(-50%,-54%);width:34%;max-width:190px;aspect-ratio:9/16;background:rgba(0,16,32,0.5);border:1px solid rgba(0,200,255,0.4);border-radius:20px;backdrop-filter:blur(10px);box-shadow:0 0 40px rgba(0,200,255,0.22),inset 0 0 20px rgba(0,200,255,0.05);display:flex;flex-direction:column;padding:12px 10px;gap:6px;pointer-events:none;}
+  /* backdrop-filter is duplicated across both eye panes and is one of the most
+     expensive things a mobile GPU can be asked to do per frame. Dropped in
+     favour of a more opaque background that costs nothing. */
+  .goggle-screen{position:absolute;top:50%;left:50%;transform:translate(-50%,-54%);width:34%;max-width:190px;aspect-ratio:9/16;background:rgba(0,16,32,0.78);border:1px solid rgba(0,200,255,0.4);border-radius:20px;box-shadow:0 0 40px rgba(0,200,255,0.22),inset 0 0 20px rgba(0,200,255,0.05);display:flex;flex-direction:column;padding:12px 10px;gap:6px;pointer-events:none;}
   .goggle-screen-header{font-family:'Share Tech Mono',monospace;font-size:0.5rem;color:var(--hud);letter-spacing:0.18em;border-bottom:1px solid rgba(0,200,255,0.2);padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
   .goggle-screen-dot{width:5px;height:5px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;animation:pulse-dot 2s ease-in-out infinite;}
   .goggle-screen-msgs{flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;}
@@ -139,8 +150,10 @@
   .goggle-msg.user{background:rgba(0,100,200,0.12);border-left-color:rgba(0,120,255,0.7);opacity:0.85;}
 
   /* Pinch cursor (hand-tracking) */
-  .pinch-cursor{position:fixed;width:18px;height:18px;margin:-9px;border-radius:50%;border:2px solid #ffd54a;box-shadow:0 0 14px rgba(255,213,74,0.7);pointer-events:none;display:none;transition:transform 0.05s linear;z-index:2010;}
-  .pinch-cursor.active{background:rgba(255,213,74,0.35);transform:scale(0.7);}
+  /* Positioned via transform:translate3d() from JS — compositor-only, no layout.
+     left/top are pinned to 0 so the transform is absolute in viewport space. */
+  .pinch-cursor{position:fixed;left:0;top:0;width:18px;height:18px;margin:-9px;border-radius:50%;border:2px solid #ffd54a;box-shadow:0 0 14px rgba(255,213,74,0.7);pointer-events:none;display:none;z-index:2010;will-change:transform;}
+  .pinch-cursor.active{background:rgba(255,213,74,0.35);border-color:#fff;box-shadow:0 0 20px rgba(255,213,74,0.95);}
   .hand-status{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:0.48rem;color:var(--muted);letter-spacing:0.14em;pointer-events:none;}
   .voice-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--muted);padding:2px 0;}
   .toggle{width:30px;height:16px;border-radius:8px;background:rgba(0,200,255,0.1);border:1px solid var(--border);position:relative;transition:all 0.3s;cursor:pointer;flex-shrink:0;}
@@ -164,7 +177,23 @@
   .orbit-ring{position:relative;width:min(78vw,520px);height:min(78vw,520px);transform-style:preserve-3d;animation:orbit-spin 40s linear infinite;}
   @keyframes orbit-spin{to{transform:rotateZ(360deg);}}
   .orbit-icon{position:absolute;top:50%;left:50%;width:52px;height:52px;margin:-26px;transform-origin:center;pointer-events:auto;}
-  .orbit-icon-inner{width:100%;height:100%;border-radius:50%;background:rgba(0,20,40,0.55);border:1px solid rgba(0,200,255,0.4);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:var(--hud);cursor:pointer;box-shadow:0 0 18px rgba(0,200,255,0.25),inset 0 0 12px rgba(0,200,255,0.1);animation:icon-float 3.4s ease-in-out infinite;transition:transform 0.2s,box-shadow 0.2s;}
+  .orbit-icon-inner{width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 50% 38%,rgba(0,60,110,0.65) 0%,rgba(0,18,38,0.72) 70%);border:1px solid rgba(0,200,255,0.4);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;color:var(--hud);cursor:pointer;box-shadow:0 0 18px rgba(0,200,255,0.25),inset 0 0 12px rgba(0,200,255,0.1);animation:icon-float 3.4s ease-in-out infinite;transition:transform 0.2s,box-shadow 0.2s,border-color 0.2s;position:relative;}
+  /* Thin inner hairline ring — reads as machined bezel rather than a flat disc */
+  .orbit-icon-inner::after{content:'';position:absolute;inset:3px;border-radius:50%;border:1px solid rgba(0,200,255,0.16);pointer-events:none;}
+  .orbit-icon-inner .oi{width:28px;height:28px;display:block;overflow:visible;}
+  /* Constant stroke weight even when the ring is scaled up in the goggles panes */
+  .orbit-icon-inner .oi *{vector-effect:non-scaling-stroke;}
+  /* Level 1+: every filter/blur pass off. These are per-pixel GPU work and are
+     the cheapest thing to sacrifice for temperature. */
+  body.thermal-1 .orbit-icon-inner .oi{filter:none !important;}
+  body.thermal-1 .orbit-icon-inner{backdrop-filter:none !important;box-shadow:0 0 10px rgba(0,200,255,0.18);}
+  body.thermal-1 #particleCanvas{display:none;}
+  body.thermal-2 .orbit-icon-inner{animation:none;}
+  body.thermal-2 .goggle-screen{box-shadow:none;}
+  /* Glow is a filter pass — skip it while the camera is live (see perfSaveMode) */
+  body:not(.ar-mode) .orbit-icon-inner .oi{filter:drop-shadow(0 0 4px rgba(0,200,255,0.7));}
+  .orbit-icon-inner:hover{border-color:rgba(0,200,255,0.75);}
+  .orbit-icon-inner.gaze-target .oi{filter:none;}
   .orbit-icon:nth-child(2) .orbit-icon-inner{animation-delay:.3s;}
   .orbit-icon:nth-child(3) .orbit-icon-inner{animation-delay:.6s;}
   .orbit-icon:nth-child(4) .orbit-icon-inner{animation-delay:.9s;}
@@ -356,6 +385,7 @@
         <div>▸ WAKE WORD — <span id="wakeStatusText">off</span></div>
         <div>▸ AR — <span id="arStatusText">standby</span></div>
         <div>▸ NEURAL CORE — <span id="geminiStatusText">no key</span></div>
+        <div>▸ THERMAL — <span id="thermalStatusText">nominal</span> · <span id="thermalFpsText">— fps</span></div>
       </div>
     </div>
     <div class="panel">
@@ -374,22 +404,22 @@
 <div id="orbitLayer">
   <div class="orbit-ring" id="orbitRing">
     <div class="orbit-icon" style="transform:rotate(0deg) translateX(150px) rotate(0deg)" data-cmd="time">
-      <div class="orbit-icon-inner">🕐</div><div class="orbit-label">TIME</div>
+      <div class="orbit-icon-inner"><svg class="oi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M12 6.6V12l3.8 2.3"/></svg></div><div class="orbit-label">TIME</div>
     </div>
     <div class="orbit-icon" style="transform:rotate(60deg) translateX(150px) rotate(-60deg)" data-cmd="diagnostics">
-      <div class="orbit-icon-inner">⚙</div><div class="orbit-label">DIAG</div>
+      <div class="orbit-icon-inner"><svg class="oi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M3.6 12h3.1l1.9-4.2 2.6 8.4 2-4.9 1.3 2.4 1.6-1.7h3.3"/></svg></div><div class="orbit-label">DIAG</div>
     </div>
     <div class="orbit-icon" style="transform:rotate(120deg) translateX(150px) rotate(-120deg)" data-cmd="search ai news">
-      <div class="orbit-icon-inner">🔍</div><div class="orbit-label">SEARCH</div>
+      <div class="orbit-icon-inner"><svg class="oi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.6" cy="10.6" r="6.9"/><path d="M15.6 15.6L20.6 20.6"/></svg></div><div class="orbit-label">SEARCH</div>
     </div>
     <div class="orbit-icon orbit-icon-extra" style="transform:rotate(180deg) translateX(150px) rotate(-180deg)" data-cmd="joke">
-      <div class="orbit-icon-inner">💬</div><div class="orbit-label">JOKE</div>
+      <div class="orbit-icon-inner"><svg class="oi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 12.2c0 3.9-3.9 7-8.8 7-1 0-2-.13-2.9-.37L3.6 20.8l1.3-3.7a6.6 6.6 0 01-1.7-4.9c0-3.9 3.9-7 8.8-7s8.8 3.1 8.8 7z"/><path d="M8.5 12.2h.01M12 12.2h.01M15.5 12.2h.01" stroke-width="2.6"/></svg></div><div class="orbit-label">JOKE</div>
     </div>
     <div class="orbit-icon orbit-icon-extra" style="transform:rotate(240deg) translateX(150px) rotate(-240deg)" data-cmd="who are you">
-      <div class="orbit-icon-inner">◈</div><div class="orbit-label">ID</div>
+      <div class="orbit-icon-inner"><svg class="oi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.2l7 9.8-7 9.8-7-9.8z"/><circle cx="12" cy="12" r="2.1" fill="currentColor" stroke="none"/></svg></div><div class="orbit-label">ID</div>
     </div>
     <div class="orbit-icon" style="transform:rotate(300deg) translateX(150px) rotate(-300deg)" data-cmd="__mic__">
-      <div class="orbit-icon-inner">🎙</div><div class="orbit-label">MIC</div>
+      <div class="orbit-icon-inner"><svg class="oi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.8" y="2.2" width="6.4" height="11.2" rx="3.2"/><path d="M4.9 11.4a7.1 7.1 0 0014.2 0"/><path d="M12 18.5v3.3"/></svg></div><div class="orbit-label">MIC</div>
     </div>
   </div>
 </div>
@@ -399,6 +429,11 @@
   <div class="eye-pane" id="eyeLeft"></div>
   <div class="eye-pane" id="eyeRight"></div>
   <button id="gogglesExit">✕ EXIT GOGGLES</button>
+  <div id="rotateHint">
+    <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#00c8ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+    <div>ROTATE TO LANDSCAPE</div>
+    <div class="rotate-sub">Turn your phone sideways to strap into goggles. If it doesn't rotate automatically, enable Auto-rotate in your phone's quick settings.</div>
+  </div>
 </div>
 
 <!-- VOICE OVERLAY -->
@@ -461,6 +496,37 @@
         </select>
       </div>
     </div>
+    <div class="settings-note" style="margin-top:18px;border-top:1px solid rgba(255,255,255,0.08);padding-top:14px;">Choose a voice engine for JARVIS to speak with.</div>
+    <div class="settings-field">
+      <label class="settings-label">VOICE ENGINE</label>
+      <select class="settings-input" id="voiceEngineSelect">
+        <option value="browser">Browser (built-in, free)</option>
+        <option value="elevenlabs">ElevenLabs (realistic AI voice)</option>
+      </select>
+    </div>
+    <div id="elevenlabsFields" style="display:none;">
+      <div class="settings-field">
+        <label class="settings-label">ELEVENLABS API KEY</label>
+        <input class="settings-input" id="elevenlabsKeyInput" type="password" placeholder="sk_..." autocomplete="off"/>
+        <div class="settings-note" style="margin:6px 0 0;">Get a key: <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener">elevenlabs.io/app/settings/api-keys</a></div>
+      </div>
+      <div class="settings-field">
+        <label class="settings-label">VOICE</label>
+        <select class="settings-input" id="elevenlabsVoiceSelect">
+          <option value="sLfduly0sixkh8riDzed">Charlie (British male — recommended)</option>
+          <option value="pNInz6obpgDQGcFmaJgB">Adam (deep male)</option>
+          <option value="onwK4e9ZLuTAKqWW03F9">Daniel (British male)</option>
+          <option value="TxGEqnHWrfWFTfGW9XjX">Josh (male)</option>
+          <option value="21m00Tcm4TlvDq8ikWAM">Rachel (female)</option>
+          <option value="custom">Custom voice ID...</option>
+        </select>
+      </div>
+      <div class="settings-field" id="elevenlabsCustomVoiceField" style="display:none;">
+        <label class="settings-label">CUSTOM VOICE ID</label>
+        <input class="settings-input" id="elevenlabsCustomVoiceInput" type="text" placeholder="Paste voice ID from your ElevenLabs library" autocomplete="off"/>
+      </div>
+      <div class="settings-note" style="margin:0 0 6px;">Uses your ElevenLabs quota — sent directly from this browser to ElevenLabs.</div>
+    </div>
     <div class="settings-actions">
       <button class="btn" id="settingsCancel" style="background:transparent;color:var(--muted);">CLOSE</button>
       <button class="btn btn-send" id="settingsSave">SAVE</button>
@@ -492,12 +558,66 @@ let voiceOverlayOpen = false;
 // ---------- Neural core provider config (Gemini / Groq) ----------
 // A built-in default key so anyone opening this link works out of the box.
 // NOTE: this is visible to anyone who views this page's source.
-const BUILTIN_GROQ_KEY = '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';
-let aiProvider = localStorage.getItem('jarvis_provider') || 'groq';
+// NOTE: API keys must NOT be hardcoded here. This file ships to the browser, so
+// anything in it is public. Keys now come from Settings -> localStorage only.
+const BUILTIN_GROQ_KEY = '';
+let aiProvider = localStorage.getItem('jarvis_provider') || 'gemini';
 let geminiApiKey = localStorage.getItem('jarvis_gemini_key') || '';
 let geminiModel = localStorage.getItem('jarvis_gemini_model') || 'gemini-2.5-flash';
 let groqApiKey = localStorage.getItem('jarvis_groq_key') || BUILTIN_GROQ_KEY;
 let groqModel = localStorage.getItem('jarvis_groq_model') || 'llama-3.3-70b-versatile';
+
+// ---------- Voice engine config (Browser / ElevenLabs) ----------
+let voiceEngine = localStorage.getItem('jarvis_voice_engine') || 'elevenlabs';
+let elevenlabsKey = localStorage.getItem('jarvis_elevenlabs_key') || '';
+let elevenlabsVoiceId = localStorage.getItem('jarvis_elevenlabs_voice') || 'yJSTU8D97YocC6Dqg20L';
+let currentElevenAudio = null;
+
+// ---------- Audio unlock (the main reason ElevenLabs went silent) ----------
+// Mobile browsers only allow audio.play() while a user gesture is still "active".
+// speakWithElevenLabs awaits a network round-trip first, so by the time it calls
+// play() that activation has expired and the promise rejects with NotAllowedError.
+// Fix: create ONE <audio> element and unlock it on the very first user gesture,
+// then reuse that same unlocked element for every utterance.
+let sharedAudioEl = null;
+let audioUnlocked = false;
+
+function getSharedAudio(){
+  if(!sharedAudioEl){
+    sharedAudioEl = new Audio();
+    sharedAudioEl.preload = 'auto';
+    sharedAudioEl.setAttribute('playsinline','');
+  }
+  return sharedAudioEl;
+}
+
+function unlockAudio(){
+  if(audioUnlocked) return;
+  const a = getSharedAudio();
+  // 50ms of silent WAV - enough to satisfy the gesture requirement.
+  a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+  a.volume = 0;
+  const pr = a.play();
+  if(pr && pr.then){
+    pr.then(()=>{
+      a.pause(); a.currentTime = 0; a.volume = 1;
+      audioUnlocked = true;
+      addLog('[VOICE] Audio output unlocked','ok');
+    }).catch(()=>{ /* try again on the next gesture */ });
+  } else {
+    audioUnlocked = true;
+  }
+  // speechSynthesis needs the same priming on iOS.
+  try{
+    const u = new SpeechSynthesisUtterance('');
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+['pointerdown','touchstart','keydown','click'].forEach(ev=>{
+  window.addEventListener(ev, unlockAudio, {once:false, passive:true});
+});
+
 function refreshGeminiStatus(){
   const active = aiProvider==='groq' ? !!groqApiKey : !!geminiApiKey;
   const label = aiProvider==='groq' ? 'groq' : 'gemini';
@@ -508,7 +628,141 @@ refreshGeminiStatus();
 // perfSaveMode trims background visual work (particles, log spam) while AR/goggles
 // need every spare cycle for the camera feed and (optionally) hand tracking.
 let perfSaveMode = false;
-const FRAME_BUDGET_MS = 1000/60; // steady 60fps ceiling for all our own rAF-driven loops
+// Locked to 60fps. rAF already fires at the display refresh rate, so the budget
+// exists to *skip* work on 90/120Hz panels rather than to chase extra frames.
+const TARGET_FPS = 60;
+const FRAME_BUDGET_MS = 1000/TARGET_FPS;
+
+// ---------------------------------------------------------------------------
+// THERMAL GOVERNOR
+//
+// A phone has no API that reports "I am hot" on Android/iOS browsers. But
+// thermal throttling has a reliable signature: sustained frame rate decays
+// while the workload is unchanged. We measure real delivered FPS and step down
+// the expensive work when it sags, then step back up once it recovers.
+//
+// Load is shed in the order of cost-per-degree, most expensive first:
+//   0  full quality
+//   1  glow/blur filters off, particles off
+//   2  hand tracking 20Hz -> 10Hz, camera downscaled via applyConstraints
+//   3  hand tracking off entirely (gaze still works), camera 480p
+// ---------------------------------------------------------------------------
+const THERMAL = {
+  level: 0,
+  maxLevel: 3,
+  fps: 60,
+  samples: [],
+  lastStep: 0,
+  enabled: true,
+  // Sustained FPS below this for a few seconds = we are being throttled.
+  DOWN_FPS: 42,
+  UP_FPS: 56,
+  DWELL_MS: 4000
+};
+
+function thermalHandHz(){
+  return THERMAL.level >= 3 ? 0 : (THERMAL.level >= 2 ? 10 : 20);
+}
+
+// Downscale the LIVE camera track without tearing down the stream. This is the
+// single most effective cooling lever: the ISP and the GPU both do less work.
+async function thermalApplyCamera(){
+  if(!arStream) return;
+  const track = arStream.getVideoTracks()[0];
+  if(!track || !track.applyConstraints) return;
+  const profile = THERMAL.level >= 3 ? { width:854, height:480, frameRate:24 }
+                : THERMAL.level >= 2 ? { width:960, height:540, frameRate:24 }
+                : { width:1280, height:720, frameRate:30 };
+  try{
+    await track.applyConstraints({
+      width:{ ideal:profile.width, max:profile.width },
+      height:{ ideal:profile.height, max:profile.height },
+      frameRate:{ ideal:profile.frameRate, max:profile.frameRate }
+    });
+    addLog('[THERMAL] Camera -> '+profile.width+'x'+profile.height+'@'+profile.frameRate,'info');
+  }catch(e){ /* device refused the constraint — nothing else to do */ }
+}
+
+function thermalSetLevel(n, reason){
+  n = Math.max(0, Math.min(THERMAL.maxLevel, n));
+  if(n === THERMAL.level) return;
+  const prev = THERMAL.level;
+  THERMAL.level = n;
+  THERMAL.lastStep = performance.now();
+  document.body.classList.toggle('thermal-1', n >= 1);
+  document.body.classList.toggle('thermal-2', n >= 2);
+  document.body.classList.toggle('thermal-3', n >= 3);
+  thermalApplyCamera();
+  addLog('[THERMAL] Level '+prev+' -> '+n+' ('+reason+')', n > prev ? 'warn' : 'ok');
+  const el = document.getElementById('thermalStatusText');
+  if(el) el.textContent = n === 0 ? 'nominal' : ('shedding L'+n);
+}
+
+// Frame-rate sampler. Runs off its own rAF so it measures the real presented
+// cadence, independent of whatever the drawing loops are gated to.
+let _thLast = 0, _thFrames = 0, _thWindow = 0;
+function thermalTick(ts){
+  if(_thLast){
+    const dt = ts - _thLast;
+    _thWindow += dt; _thFrames++;
+    if(_thWindow >= 1000){
+      const fps = (_thFrames * 1000) / _thWindow;
+      THERMAL.fps = fps;
+      THERMAL.samples.push(fps);
+      if(THERMAL.samples.length > 6) THERMAL.samples.shift();
+      _thWindow = 0; _thFrames = 0;
+
+      const el = document.getElementById('thermalFpsText');
+      if(el) el.textContent = Math.round(fps)+' fps';
+
+      // Only govern while the camera is actually running — that's the only
+      // time the thermal load is high enough to matter.
+      if(THERMAL.enabled && arActive && THERMAL.samples.length >= 3){
+        const avg = THERMAL.samples.reduce((a,b)=>a+b,0) / THERMAL.samples.length;
+        const since = performance.now() - THERMAL.lastStep;
+        if(since > THERMAL.DWELL_MS){
+          if(avg < THERMAL.DOWN_FPS && THERMAL.level < THERMAL.maxLevel){
+            thermalSetLevel(THERMAL.level+1, Math.round(avg)+'fps sustained');
+            THERMAL.samples.length = 0;
+          } else if(avg > THERMAL.UP_FPS && THERMAL.level > 0){
+            thermalSetLevel(THERMAL.level-1, 'recovered to '+Math.round(avg)+'fps');
+            THERMAL.samples.length = 0;
+          }
+        }
+      }
+    }
+  }
+  _thLast = ts;
+  requestAnimationFrame(thermalTick);
+}
+requestAnimationFrame(thermalTick);
+
+// If the battery is already draining hard we are probably warm before we start.
+if(navigator.getBattery){
+  navigator.getBattery().then(b=>{
+    const check = ()=>{
+      if(!arActive) return;
+      if(b.level < 0.15 && !b.charging && THERMAL.level < 1){
+        thermalSetLevel(1, 'battery below 15%');
+      }
+    };
+    b.addEventListener('levelchange', check);
+    b.addEventListener('chargingchange', check);
+  }).catch(()=>{});
+}
+
+// Drift-tolerant frame gate. Returns true when this rAF tick should do work.
+// Keeps a per-loop accumulator so we don't slowly drift off cadence, but hard
+// resyncs after a stall (tab backgrounded, GC pause, camera hiccup).
+function makeFrameGate(){
+  let last = -Infinity;
+  return function(ts){
+    if(ts - last < FRAME_BUDGET_MS) return false;
+    last += FRAME_BUDGET_MS;
+    if(ts - last > FRAME_BUDGET_MS*2) last = ts;
+    return true;
+  };
+}
 
 // ---------- PWA install + service worker ----------
 if('serviceWorker' in navigator){
@@ -639,8 +893,17 @@ function showTyping(){
 }
 function removeTyping(){const t=document.getElementById('typing');if(t)t.remove();}
 
-function jarvisSpeak(text){
-  if(!ttsEnabled)return;
+function stopAllSpeech(){
+  try{ window.speechSynthesis.cancel(); }catch(e){}
+  if(currentElevenAudio){
+    try{ currentElevenAudio.pause(); currentElevenAudio.currentTime=0; }catch(e){}
+    currentElevenAudio=null;
+  }
+  // Keep sharedAudioEl alive and unlocked — only the playback is cancelled.
+  isSpeaking=false;
+}
+
+function speakWithBrowser(text){
   window.speechSynthesis.cancel();
   const utter=new SpeechSynthesisUtterance(text);
   const voices=window.speechSynthesis.getVoices();
@@ -659,21 +922,151 @@ function jarvisSpeak(text){
 }
 window.speechSynthesis.onvoiceschanged=()=>{};
 
+// Turn an ElevenLabs error response into something actionable instead of a
+// silent fallback that just makes it look like "the voice broke".
+async function describeElevenError(resp){
+  let body = null;
+  try{ body = await resp.json(); }catch(e){ body = null; }
+  const detail = body && body.detail;
+  const apiMsg = (detail && (detail.message || detail.status)) ||
+                 (typeof detail === 'string' ? detail : null);
+  switch(resp.status){
+    case 401:
+      return 'key rejected (401) — the API key is invalid or has been revoked. Generate a fresh one at elevenlabs.io and paste it into Settings.';
+    case 403:
+      return 'forbidden (403) — '+(apiMsg||'this key is not allowed to use this voice. Check the voice ID belongs to your account.');
+    case 404:
+      return 'voice not found (404) — voice ID "'+elevenlabsVoiceId+'" does not exist on this account.';
+    case 422:
+      return 'request rejected (422) — '+(apiMsg||'unsupported voice settings for this model.');
+    case 429:
+      return 'rate limited / out of quota (429) — '+(apiMsg||'your character quota is exhausted for this billing period.');
+    default:
+      return (apiMsg||'HTTP '+resp.status);
+  }
+}
+
+async function speakWithElevenLabs(text){
+  if(!elevenlabsKey){
+    addLog('[VOICE] No ElevenLabs key set — open Settings and paste one','warn');
+    speakWithBrowser(text);
+    return;
+  }
+  let objectUrl = null;
+  try{
+    const resp = await fetch(
+      'https://api.elevenlabs.io/v1/text-to-speech/'+encodeURIComponent(elevenlabsVoiceId)+
+        '?output_format=mp3_44100_128&optimize_streaming_latency=3',
+      {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'xi-api-key': elevenlabsKey,
+          'Accept':'audio/mpeg'
+        },
+        // NOTE: `speed` is deliberately NOT sent. It is rejected with 422 on
+        // several model/voice combinations. Rate is applied locally via
+        // playbackRate below, which works on every model.
+        body: JSON.stringify({
+          text: text,
+          model_id: 'eleven_turbo_v2_5',
+          voice_settings:{ stability:0.5, similarity_boost:0.75, use_speaker_boost:true }
+        })
+      }
+    );
+
+    if(!resp.ok){
+      throw new Error(await describeElevenError(resp));
+    }
+
+    const blob = await resp.blob();
+    if(!blob || blob.size === 0) throw new Error('empty audio response');
+    objectUrl = URL.createObjectURL(blob);
+
+    // Reuse the gesture-unlocked element rather than `new Audio()`, otherwise
+    // play() is blocked because the user activation expired during the fetch.
+    const audio = getSharedAudio();
+    try{ audio.pause(); }catch(e){}
+    const prevSrc = audio.src;
+    audio.src = objectUrl;
+    audio.volume = speechVolume;
+    audio.playbackRate = Math.min(2, Math.max(0.5, speechRate));
+    currentElevenAudio = audio;
+
+    audio.onended = ()=>{
+      isSpeaking=false;
+      vizLabel.textContent='AUDIO SPECTRUM — IDLE';
+      if(objectUrl){ URL.revokeObjectURL(objectUrl); objectUrl=null; }
+      if(currentElevenAudio===audio) currentElevenAudio=null;
+    };
+    audio.onerror = ()=>{
+      isSpeaking=false;
+      vizLabel.textContent='AUDIO SPECTRUM — IDLE';
+      if(objectUrl){ URL.revokeObjectURL(objectUrl); objectUrl=null; }
+    };
+
+    isSpeaking=true;
+    vizLabel.textContent='AUDIO OUTPUT — J.A.R.V.I.S SPEAKING';
+
+    try{
+      await audio.play();
+    }catch(playErr){
+      isSpeaking=false;
+      vizLabel.textContent='AUDIO SPECTRUM — IDLE';
+      if(playErr && playErr.name === 'NotAllowedError'){
+        audioUnlocked = false;
+        addLog('[VOICE] Browser blocked playback — tap anywhere once, then try again','warn');
+        speakWithBrowser(text);
+        return;
+      }
+      throw playErr;
+    }
+
+    if(prevSrc && prevSrc.startsWith('blob:') && prevSrc !== objectUrl){
+      try{ URL.revokeObjectURL(prevSrc); }catch(e){}
+    }
+
+  }catch(err){
+    if(objectUrl){ try{ URL.revokeObjectURL(objectUrl); }catch(e){} }
+    const detail = (err && err.message) || 'playback failed';
+    addLog('[VOICE] ElevenLabs '+detail,'warn');
+    addLog('[VOICE] Falling back to browser voice','info');
+    speakWithBrowser(text);
+  }
+}
+
+function jarvisSpeak(text){
+  if(!ttsEnabled)return;
+  stopAllSpeech();
+  if(voiceEngine==='elevenlabs' && elevenlabsKey){
+    speakWithElevenLabs(text);
+  }else{
+    speakWithBrowser(text);
+  }
+}
+
 // Waveform
 const waveCanvas=document.getElementById('waveCanvas');
 const wCtx=waveCanvas.getContext('2d');
 let wavePhase=0;
 let waveLastFrame=0;
+const waveGate = makeFrameGate();
 function drawWave(ts=0){
-  if(ts-waveLastFrame < FRAME_BUDGET_MS){ requestAnimationFrame(drawWave); return; }
-  waveLastFrame += FRAME_BUDGET_MS;
-  if(ts-waveLastFrame > FRAME_BUDGET_MS*2) waveLastFrame=ts;
+  if(!waveGate(ts)){ requestAnimationFrame(drawWave); return; }
   const W=waveCanvas.offsetWidth||680,H=50;
-  waveCanvas.width=W;waveCanvas.height=H;
+  // Assigning canvas.width/height reallocates the backing store AND resets all
+  // context state. Doing it every frame was one of the biggest per-frame costs
+  // in the HUD. Only resize when the size actually changed.
+  if(waveCanvas.width!==W || waveCanvas.height!==H){
+    waveCanvas.width=W; waveCanvas.height=H;
+  }
   wCtx.clearRect(0,0,W,H);
   const amp=isSpeaking?(14+Math.random()*10):4;
   wCtx.strokeStyle='rgba(0,200,255,0.7)';wCtx.lineWidth=1.5;
-  wCtx.shadowColor='#00c8ff';wCtx.shadowBlur=8;
+  // Canvas shadowBlur is a per-pixel blur pass — very costly on mobile. Skip it
+  // while the camera is live and we need the headroom.
+  if(perfSaveMode){ wCtx.shadowBlur=0; }
+  else { wCtx.shadowColor='#00c8ff'; wCtx.shadowBlur=8; }
   wCtx.beginPath();
   for(let x=0;x<=W;x++){
     const y=H/2+Math.sin((x/W)*Math.PI*8+wavePhase)*amp+Math.sin((x/W)*Math.PI*5+wavePhase*0.7)*amp*0.4;
@@ -696,12 +1089,13 @@ drawWave();
 const voiceCanvas=document.getElementById('voiceCanvas');
 const vCtx=voiceCanvas.getContext('2d');
 let voicePhase=0,voiceAmp=0,voiceLastFrame=0;
+const voiceGate = makeFrameGate();
 function drawVoiceWave(ts=0){
-  if(ts-voiceLastFrame < FRAME_BUDGET_MS){ if(voiceOverlayOpen) requestAnimationFrame(drawVoiceWave); return; }
-  voiceLastFrame += FRAME_BUDGET_MS;
-  if(ts-voiceLastFrame > FRAME_BUDGET_MS*2) voiceLastFrame=ts;
+  if(!voiceGate(ts)){ if(voiceOverlayOpen) requestAnimationFrame(drawVoiceWave); return; }
   const W=voiceCanvas.offsetWidth||400,H=60;
-  voiceCanvas.width=W;voiceCanvas.height=H;
+  if(voiceCanvas.width!==W || voiceCanvas.height!==H){
+    voiceCanvas.width=W; voiceCanvas.height=H;
+  }
   vCtx.clearRect(0,0,W,H);
   const g=vCtx.createLinearGradient(0,0,W,0);
   g.addColorStop(0,'transparent');g.addColorStop(0.2,'rgba(0,200,255,0.8)');g.addColorStop(0.8,'rgba(0,200,255,0.8)');g.addColorStop(1,'transparent');
@@ -782,7 +1176,7 @@ ttsToggle.addEventListener('click',()=>{
   ttsEnabled=!ttsEnabled;
   ttsToggle.classList.toggle('on',ttsEnabled);
   ttsStatus.textContent=ttsEnabled?'ON — American voice active':'OFF — silent mode';
-  if(!ttsEnabled)window.speechSynthesis.cancel();
+  if(!ttsEnabled)stopAllSpeech();
 });
 
 // ---------- Wake word: "Hey Jarvis" ----------
@@ -874,9 +1268,16 @@ async function toggleAR(){
     addLog('[AR] Camera overlay deactivated','warn');
     return;
   }
+  // THERMAL: the old ladder asked for 1080p@100fps, then 4K@60. A phone will
+  // happily grant those, and the ISP + encoder load is the single largest heat
+  // source in this app — worse than the HUD and hand tracking combined. The
+  // stream is displayed in two ~half-screen panes, so anything above 720p is
+  // thrown away by the downscale anyway. Request the modest mode FIRST and only
+  // climb if it is refused.
   const attempts = [
-    { label:'4K', video:{ facingMode:{ideal:'environment'}, width:{ideal:3840}, height:{ideal:2160}, frameRate:{ideal:60,max:60} } },
-    { label:'1080p', video:{ facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}, frameRate:{ideal:60,max:60} } },
+    { label:'720p@30fps',  video:{ facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:30,max:30} } },
+    { label:'720p@60fps',  video:{ facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:60,max:60} } },
+    { label:'960x540@30fps', video:{ facingMode:{ideal:'environment'}, width:{ideal:960}, height:{ideal:540}, frameRate:{ideal:30,max:30} } },
     { label:'default', video:{ facingMode:{ideal:'environment'} } }
   ];
   let lastErr=null;
@@ -980,16 +1381,24 @@ class Particle {
     pCtx.beginPath(); pCtx.arc(this.x,this.y,this.size,0,Math.PI*2); pCtx.fill();
   }
 }
-for(let i=0;i<80;i++) particles.push(new Particle());
+// Scale particle count to the viewport so small phones aren't doing desktop
+// amounts of per-frame work.
+const PARTICLE_COUNT = Math.max(24, Math.min(80, Math.round((window.innerWidth*window.innerHeight)/14000)));
+for(let i=0;i<PARTICLE_COUNT;i++) particles.push(new Particle());
 let particleLastFrame=0;
+const particleGate = makeFrameGate();
+let particleCleared=false;
 function animParticles(ts=0){
-  if(ts-particleLastFrame < FRAME_BUDGET_MS){ requestAnimationFrame(animParticles); return; }
-  particleLastFrame += FRAME_BUDGET_MS;
-  if(ts-particleLastFrame > FRAME_BUDGET_MS*2) particleLastFrame=ts;
-  if(!perfSaveMode){
+  if(!particleGate(ts)){ requestAnimationFrame(animParticles); return; }
+  if(!perfSaveMode && THERMAL.level < 1){
+    particleCleared=false;
     pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
-    particles.forEach(p=>{p.update();p.draw();});
+    for(let i=0;i<particles.length;i++){ particles[i].update(); particles[i].draw(); }
     pCtx.globalAlpha=1;
+  } else if(!particleCleared){
+    // Clear once on entering perf-save instead of leaving a stale frame behind.
+    pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
+    particleCleared=true;
   }
   requestAnimationFrame(animParticles);
 }
@@ -1073,8 +1482,39 @@ makeDial('rateCanvas','rateLabel', 0.6, 1.4, 0.88, 2, v=>{ speechRate=v; });
 makeDial('pitchCanvas','pitchLabel', 0.4, 1.2, 0.85, 2, v=>{ speechPitch=v; });
 makeDial('volCanvas','volLabel', 0.0, 1.0, 1.0, 2, v=>{ speechVolume=v; });
 
-document.getElementById('testVoiceBtn').addEventListener('click', ()=>{
-  window.speechSynthesis.cancel();
+// Verifies the key/quota independently of synthesis, so a failure tells you
+// WHICH thing is broken rather than just silently using the browser voice.
+async function checkElevenLabsAccount(){
+  if(!elevenlabsKey){ addLog('[VOICE] No ElevenLabs key configured','warn'); return false; }
+  try{
+    const r = await fetch('https://api.elevenlabs.io/v1/user/subscription',{
+      headers:{ 'xi-api-key': elevenlabsKey }
+    });
+    if(!r.ok){
+      addLog('[VOICE] Key check failed — '+(await describeElevenError(r)),'warn');
+      return false;
+    }
+    const info = await r.json();
+    const used = info.character_count, lim = info.character_limit;
+    if(typeof used === 'number' && typeof lim === 'number'){
+      const left = lim - used;
+      addLog('[VOICE] Key OK — '+left.toLocaleString()+' of '+lim.toLocaleString()+' characters remaining','ok');
+      if(left <= 0){
+        addLog('[VOICE] Quota exhausted — that is why synthesis falls back to the browser voice','warn');
+        return false;
+      }
+    } else {
+      addLog('[VOICE] Key OK','ok');
+    }
+    return true;
+  }catch(e){
+    addLog('[VOICE] Key check could not reach ElevenLabs ('+(e.message||'network error')+')','warn');
+    return false;
+  }
+}
+
+document.getElementById('testVoiceBtn').addEventListener('click', async ()=>{
+  unlockAudio(); // this IS a user gesture — take the opportunity
   const phrases = [
     'Voice calibration complete, sir. All systems nominal.',
     'Reactor output is stable. Standing by.',
@@ -1082,16 +1522,16 @@ document.getElementById('testVoiceBtn').addEventListener('click', ()=>{
     'Ready and online, sir.',
   ];
   const txt = phrases[Math.floor(Math.random()*phrases.length)];
-  const u = new SpeechSynthesisUtterance(txt);
-  const voices = window.speechSynthesis.getVoices();
-  const preferred=['Microsoft Guy','Microsoft David','Google US English','Reed','Alex','Aaron','Fred'];
-  let chosen = null;
-  for(const p of preferred){ chosen=voices.find(v=>v.name.includes(p)); if(chosen)break; }
-  if(!chosen) chosen = voices.find(v=>v.lang==='en-US')||voices[0];
-  if(chosen) u.voice = chosen;
-  u.rate = speechRate; u.pitch = speechPitch; u.volume = speechVolume;
-  window.speechSynthesis.speak(u);
-  addLog('[VOICE] Test fired — rate:'+speechRate.toFixed(2)+' pitch:'+speechPitch.toFixed(2),'ok');
+
+  if(voiceEngine==='elevenlabs'){
+    await checkElevenLabsAccount();
+  }
+
+  const wasEnabled = ttsEnabled;
+  ttsEnabled = true;
+  jarvisSpeak(txt);
+  ttsEnabled = wasEnabled;
+  addLog('[VOICE] Test fired via '+(voiceEngine==='elevenlabs'&&elevenlabsKey?'ElevenLabs':'browser')+' — rate:'+speechRate.toFixed(2)+' pitch:'+speechPitch.toFixed(2),'ok');
 });
 
 // ---------- Settings modal ----------
@@ -1100,6 +1540,10 @@ function syncSettingsFieldVisibility(){
   const p = document.getElementById('providerSelect').value;
   document.getElementById('geminiFields').style.display = p==='gemini' ? 'block' : 'none';
   document.getElementById('groqFields').style.display = p==='groq' ? 'block' : 'none';
+  const v = document.getElementById('voiceEngineSelect').value;
+  document.getElementById('elevenlabsFields').style.display = v==='elevenlabs' ? 'block' : 'none';
+  const vs = document.getElementById('elevenlabsVoiceSelect').value;
+  document.getElementById('elevenlabsCustomVoiceField').style.display = vs==='custom' ? 'block' : 'none';
 }
 document.getElementById('settingsBtn').addEventListener('click', ()=>{
   document.getElementById('providerSelect').value = aiProvider;
@@ -1107,10 +1551,22 @@ document.getElementById('settingsBtn').addEventListener('click', ()=>{
   document.getElementById('geminiModelSelect').value = geminiModel;
   document.getElementById('groqKeyInput').value = groqApiKey;
   document.getElementById('groqModelSelect').value = groqModel;
+  document.getElementById('voiceEngineSelect').value = voiceEngine;
+  document.getElementById('elevenlabsKeyInput').value = elevenlabsKey;
+  const knownVoiceIds = ['sLfduly0sixkh8riDzed','pNInz6obpgDQGcFmaJgB','onwK4e9ZLuTAKqWW03F9','TxGEqnHWrfWFTfGW9XjX','21m00Tcm4TlvDq8ikWAM'];
+  if(knownVoiceIds.includes(elevenlabsVoiceId)){
+    document.getElementById('elevenlabsVoiceSelect').value = elevenlabsVoiceId;
+    document.getElementById('elevenlabsCustomVoiceInput').value = '';
+  }else{
+    document.getElementById('elevenlabsVoiceSelect').value = 'custom';
+    document.getElementById('elevenlabsCustomVoiceInput').value = elevenlabsVoiceId;
+  }
   syncSettingsFieldVisibility();
   settingsOverlay.classList.add('show');
 });
 document.getElementById('providerSelect').addEventListener('change', syncSettingsFieldVisibility);
+document.getElementById('voiceEngineSelect').addEventListener('change', syncSettingsFieldVisibility);
+document.getElementById('elevenlabsVoiceSelect').addEventListener('change', syncSettingsFieldVisibility);
 document.getElementById('settingsCancel').addEventListener('click', ()=> settingsOverlay.classList.remove('show'));
 document.getElementById('settingsSave').addEventListener('click', ()=>{
   aiProvider = document.getElementById('providerSelect').value;
@@ -1118,15 +1574,30 @@ document.getElementById('settingsSave').addEventListener('click', ()=>{
   geminiModel = document.getElementById('geminiModelSelect').value;
   groqApiKey = document.getElementById('groqKeyInput').value.trim() || BUILTIN_GROQ_KEY;
   groqModel = document.getElementById('groqModelSelect').value;
+
+  voiceEngine = document.getElementById('voiceEngineSelect').value;
+  elevenlabsKey = document.getElementById('elevenlabsKeyInput').value.trim();
+  const voiceSelectVal = document.getElementById('elevenlabsVoiceSelect').value;
+  elevenlabsVoiceId = voiceSelectVal==='custom'
+    ? (document.getElementById('elevenlabsCustomVoiceInput').value.trim() || 'sLfduly0sixkh8riDzed')
+    : voiceSelectVal;
+
   localStorage.setItem('jarvis_provider', aiProvider);
   localStorage.setItem('jarvis_gemini_key', geminiApiKey);
   localStorage.setItem('jarvis_gemini_model', geminiModel);
   localStorage.setItem('jarvis_groq_key', groqApiKey);
   localStorage.setItem('jarvis_groq_model', groqModel);
+  localStorage.setItem('jarvis_voice_engine', voiceEngine);
+  localStorage.setItem('jarvis_elevenlabs_key', elevenlabsKey);
+  localStorage.setItem('jarvis_elevenlabs_voice', elevenlabsVoiceId);
+
   refreshGeminiStatus();
   settingsOverlay.classList.remove('show');
-  addLog('[SYS] Configuration updated — provider: '+aiProvider,'ok');
+  addLog('[SYS] Configuration updated — provider: '+aiProvider+', voice: '+voiceEngine,'ok');
   const hasKey = aiProvider==='groq' ? !!groqApiKey : !!geminiApiKey;
+  if(voiceEngine==='elevenlabs' && !elevenlabsKey){
+    addLog('[VOICE] ElevenLabs selected but no API key set — using browser voice until one is added','warn');
+  }
   if(hasKey) reply(`Neural core linked via ${aiProvider==='groq'?'Groq':'Gemini'}, sir. Ready when you are.`);
 });
 
@@ -1169,7 +1640,12 @@ async function askGemini(question){
     const msg = errBody?.error?.message || ('HTTP '+resp.status);
     const e = new Error(msg);
     e.logMessage = 'Gemini error: '+msg;
-    e.userMessage = 'My neural core rejected that request, sir. '+(resp.status===400?'The API key may be invalid.':'Please try again shortly.');
+    let hint = 'Please try again shortly.';
+    if(resp.status===400) hint = 'The API key looks invalid or malformed.';
+    else if(resp.status===403) hint = 'The key is valid but blocked — check API restrictions or that Generative Language API is enabled for it.';
+    else if(resp.status===404) hint = 'That model name isn\'t available for this key.';
+    else if(resp.status===429) hint = 'The free quota is exhausted for now — wait a bit or check your plan.';
+    e.userMessage = `My neural core rejected that request, sir. ${hint} (${msg})`;
     throw e;
   }
   const data = await resp.json();
@@ -1195,7 +1671,11 @@ async function askGroq(question){
     const msg = errBody?.error?.message || ('HTTP '+resp.status);
     const e = new Error(msg);
     e.logMessage = 'Groq error: '+msg;
-    e.userMessage = 'My neural core rejected that request, sir. '+(resp.status===401?'The Groq API key may be invalid.':'Please try again shortly.');
+    let hint = 'Please try again shortly.';
+    if(resp.status===401) hint = 'The Groq API key looks invalid.';
+    else if(resp.status===404) hint = 'That model name isn\'t available on Groq anymore.';
+    else if(resp.status===429) hint = 'Rate limit or free quota hit — wait a bit.';
+    e.userMessage = `My neural core rejected that request, sir. ${hint} (${msg})`;
     throw e;
   }
   const data = await resp.json();
@@ -1220,9 +1700,18 @@ function buildEyePanes(){
     pane.innerHTML='';
     const v=document.createElement('video');
     v.autoplay=true; v.playsInline=true; v.muted=true;
+    v.setAttribute('playsinline',''); v.setAttribute('muted','');
     if(arStream) v.srcObject=arStream;
     pane.appendChild(v);
+    // autoplay alone is unreliable for srcObject on iOS — ask explicitly.
+    v.play().catch(()=>{});
+
     const orbitClone = document.getElementById('orbitRing').cloneNode(true);
+    // cloneNode(true) duplicates every id in the subtree. Duplicate ids make
+    // getElementById() return whichever node happens to be first in the
+    // document, which silently breaks unrelated lookups. Strip them.
+    orbitClone.removeAttribute('id');
+    orbitClone.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));
     const wrap=document.createElement('div'); wrap.className='eye-orbit-wrap';
     wrap.appendChild(orbitClone);
     pane.appendChild(wrap);
@@ -1246,6 +1735,11 @@ function buildEyePanes(){
     paneIconCache.push({ pane, icons:[...pane.querySelectorAll('.orbit-icon-inner')] });
   });
   renderGogglePanels();
+  // Panes were just rebuilt — every cached rect is now stale.
+  invalidateRectCache();
+  // Layout settles a frame or two after the overlay becomes visible.
+  requestAnimationFrame(()=>requestAnimationFrame(invalidateRectCache));
+  setTimeout(invalidateRectCache, 400);
 }
 
 function triggerGazeCommand(cmd){
@@ -1262,24 +1756,36 @@ function highlightIcon(idx){
 
 function startGazeLoop(){
   gazeTargetEl=null; gazeStart=0;
-  let lastFrame=0;
+  const gate = makeFrameGate();
   function loop(ts){
     if(!gogglesActive) return;
-    if(ts-lastFrame < FRAME_BUDGET_MS){ gazeRAF=requestAnimationFrame(loop); return; }
-    lastFrame += FRAME_BUDGET_MS;
-    if(ts-lastFrame > FRAME_BUDGET_MS*2) lastFrame=ts; // resync after a stall (e.g. tab backgrounded)
+    if(!gate(ts)){ gazeRAF=requestAnimationFrame(loop); return; }
+
+    // Hand tracking owns the highlight while a hand is visible. Without this the
+    // two loops overwrite each other's .gaze-target every frame and the icon
+    // highlight strobes.
+    if(performance.now() < handSeenUntil){
+      gazeTargetEl=null; gazeStart=0;
+      gazeRAF=requestAnimationFrame(loop);
+      return;
+    }
+
     const ref = paneIconCache[0];
     if(!ref){ gazeRAF=requestAnimationFrame(loop); return; }
-    const rect = ref.pane.getBoundingClientRect();
+    if(rectCacheDirty || !iconRectCache) refreshRectCache();
+    const rect = (paneRectCache && paneRectCache[0] && paneRectCache[0].r) || ref.pane.getBoundingClientRect();
     const cx = rect.left+rect.width/2, cy = rect.top+rect.height/2;
     let closest=null, closestDist=Infinity, closestIdx=-1;
-    ref.icons.forEach((icon,i)=>{
-      const r=icon.getBoundingClientRect();
+    iconRectCache.forEach((entry,i)=>{
+      const r=entry.r;
       const ix=r.left+r.width/2, iy=r.top+r.height/2;
       const d=Math.hypot(ix-cx, iy-cy);
-      if(d<closestDist){ closestDist=d; closest=icon; closestIdx=i; }
+      if(d<closestDist){ closestDist=d; closest=entry.icon; closestIdx=i; }
     });
-    if(closest && closestDist<75){
+    // Scale the dwell radius to the pane rather than hardcoding 75px, so it
+    // behaves the same on a small phone and a large one.
+    const gazeRadius = Math.max(60, Math.min(rect.width, rect.height) * 0.22);
+    if(closest && closestDist<gazeRadius){
       highlightIcon(closestIdx);
       if(gazeTargetEl!==closest){ gazeTargetEl=closest; gazeStart=performance.now(); }
       else if(performance.now()-gazeStart > GAZE_DWELL_MS){
@@ -1309,7 +1815,17 @@ gogglesOverlay.addEventListener('click',(e)=>{
 // ---------- Pinch-to-select hand tracking (best effort — lazy loaded) ----------
 let handLandmarker=null, handRAF=null, handTrackingReady=false;
 let wasPinching=false, pinchCooldownUntil=0;
-const PINCH_THRESHOLD=0.06, PINCH_RELEASE=0.09;
+let handSeenUntil=0;          // hand tracking suppresses gaze-dwell while active
+let cursorX=null, cursorY=null; // smoothed cursor position (EMA)
+
+// Pinch is measured as a RATIO of thumb-tip↔index-tip distance to the hand's
+// own span (wrist↔middle-finger MCP). That makes it independent of how far the
+// hand is from the camera. The old code compared a raw normalized distance to a
+// fixed 0.06, which is why pinch either fired constantly (hand far away) or
+// never at all (hand close) — the single biggest reason pinch felt dead.
+const PINCH_RATIO_ON  = 0.42;  // below this = pinching
+const PINCH_RATIO_OFF = 0.62;  // above this = released (hysteresis)
+const CURSOR_SMOOTHING = 0.35; // 0..1, higher = snappier but jitterier
 
 async function startHandTracking(){
   const statusEls = ()=>document.querySelectorAll('.hand-status');
@@ -1319,21 +1835,36 @@ async function startHandTracking(){
     const filesetResolver = await vision.FilesetResolver.forVisionTasks(
       'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
     );
-    handLandmarker = await vision.HandLandmarker.createFromOptions(filesetResolver,{
-      baseOptions:{
-        modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-        delegate:'GPU'
-      },
-      runningMode:'VIDEO',
-      numHands:1
-    });
+    const modelPath = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+    // GPU delegate fails outright on a lot of mobile GPUs — fall back to CPU
+    // instead of leaving hand tracking permanently dead.
+    for(const delegate of ['GPU','CPU']){
+      try{
+        handLandmarker = await vision.HandLandmarker.createFromOptions(filesetResolver,{
+          baseOptions:{ modelAssetPath: modelPath, delegate: delegate },
+          runningMode:'VIDEO',
+          numHands:1,
+          minHandDetectionConfidence:0.5,
+          minHandPresenceConfidence:0.5,
+          minTrackingConfidence:0.5
+        });
+        addLog('[HANDS] Landmarker running on '+delegate,'info');
+        break;
+      }catch(e){
+        handLandmarker=null;
+        addLog('[HANDS] '+delegate+' delegate unavailable'+(delegate==='GPU'?' — retrying on CPU':''),'warn');
+      }
+    }
+    if(!handLandmarker) throw new Error('no delegate available');
+
     handTrackingReady=true;
     statusEls().forEach(el=>el.textContent='HAND TRACKING — READY, SHOW YOUR HAND');
     addLog('[HANDS] Pinch gesture tracking online','ok');
-    handRAF=requestAnimationFrame(handLoop);
+    startHandFrameLoop();
   }catch(err){
+    handTrackingReady=false;
     statusEls().forEach(el=>el.textContent='HAND TRACKING UNAVAILABLE — USING GAZE ONLY');
-    addLog('[HANDS] Could not load hand tracking — gaze-dwell only','warn');
+    addLog('[HANDS] Could not load hand tracking ('+(err.message||'unknown')+') — gaze-dwell only','warn');
   }
 }
 
@@ -1352,63 +1883,203 @@ function mapVideoNormToScreen(nx, ny, videoEl, mirrored){
   return {x:sx, y:sy};
 }
 
-let lastHandFrame=0;
-function handLoop(ts){
-  if(!gogglesActive){ handRAF=null; return; }
-  if(ts-lastHandFrame < FRAME_BUDGET_MS){ handRAF=requestAnimationFrame(handLoop); return; }
-  lastHandFrame += FRAME_BUDGET_MS;
-  if(ts-lastHandFrame > FRAME_BUDGET_MS*2) lastHandFrame=ts;
-  const videoEl = paneIconCache[0] && paneIconCache[0].pane.querySelector('video');
-  if(videoEl && handLandmarker && videoEl.readyState>=2){
-    try{
-      const result = handLandmarker.detectForVideo(videoEl, ts);
-      if(result && result.landmarks && result.landmarks.length>0){
-        const lm = result.landmarks[0];
-        const thumb = lm[4], index = lm[8];
-        const dist = Math.hypot(thumb.x-index.x, thumb.y-index.y, (thumb.z-index.z)*0.5);
-        const pt = mapVideoNormToScreen(index.x, index.y, videoEl, false);
-        const leftRect = videoEl.getBoundingClientRect();
-        const fracX = (pt.x-leftRect.left)/leftRect.width, fracY=(pt.y-leftRect.top)/leftRect.height;
-        let hitIdx=-1, hitCmd=null;
-        const ref = paneIconCache[0];
-        document.querySelectorAll('.eye-pane').forEach((paneEl,pi)=>{
-          const r = paneEl.getBoundingClientRect();
-          const cursor = paneEl.querySelector('.pinch-cursor');
-          if(cursor){
-            cursor.style.display='block';
-            cursor.style.left = (r.left + fracX*r.width) + 'px';
-            cursor.style.top = (r.top + fracY*r.height) + 'px';
-          }
-          if(pi===0 && ref){
-            const px = r.left + fracX*r.width, py = r.top + fracY*r.height;
-            ref.icons.forEach((icon,i)=>{
-              const ir=icon.getBoundingClientRect();
-              if(px>=ir.left-10 && px<=ir.right+10 && py>=ir.top-10 && py<=ir.bottom+10){
-                hitIdx=i; hitCmd=icon.parentElement.getAttribute('data-cmd');
-              }
-            });
-          }
-        });
-        const isPinching = dist < PINCH_THRESHOLD;
-        document.querySelectorAll('.pinch-cursor').forEach(c=>c.classList.toggle('active', isPinching));
-        if(hitIdx>=0) highlightIcon(hitIdx);
-        if(isPinching && !wasPinching && hitCmd && performance.now()>pinchCooldownUntil){
-          wasPinching=true;
-          pinchCooldownUntil = performance.now()+900;
-          triggerGazeCommand(hitCmd);
-        } else if(dist > PINCH_RELEASE){
-          wasPinching=false;
-        }
-      } else {
-        document.querySelectorAll('.pinch-cursor').forEach(c=>c.style.display='none');
-      }
-    }catch(e){ /* silent per-frame errors — keep the loop alive */ }
-  }
-  handRAF=requestAnimationFrame(handLoop);
+// ---------------------------------------------------------------------------
+// Hand tracking loop.
+//
+// Detection is driven off ACTUAL camera frames (requestVideoFrameCallback) not
+// a free-running rAF. The old code ran detectForVideo at up to 100Hz against a
+// 30fps camera, re-analysing the same frame 3x and burning GPU for nothing —
+// that alone was enough to drop the whole HUD well under 60fps.
+// ---------------------------------------------------------------------------
+let handFrameHandle=null, lastDetectTs=-1;
+let iconRectCache=null, paneRectCache=null, rectCacheDirty=true;
+
+function invalidateRectCache(){ rectCacheDirty=true; }
+window.addEventListener('resize', invalidateRectCache);
+window.addEventListener('orientationchange', invalidateRectCache);
+
+// getBoundingClientRect() per icon per frame forces synchronous layout every
+// frame. The orbit ring is a CSS animation on transform only, so the layout
+// boxes are stable — cache them and refresh on resize/orientation instead.
+function refreshRectCache(){
+  const panes = [...document.querySelectorAll('.eye-pane')];
+  paneRectCache = panes.map(el=>({ el, r: el.getBoundingClientRect() }));
+  const ref = paneIconCache[0];
+  iconRectCache = ref ? ref.icons.map(icon=>({
+    icon,
+    r: icon.getBoundingClientRect(),
+    cmd: icon.parentElement.getAttribute('data-cmd')
+  })) : [];
+  rectCacheDirty = false;
 }
+
+function getVideoEl(){
+  return paneIconCache[0] && paneIconCache[0].pane.querySelector('video');
+}
+
+function processHandFrame(videoEl, nowMs){
+  if(!handLandmarker || videoEl.readyState < 2) return;
+
+  // detectForVideo requires strictly increasing timestamps.
+  let tsUs = Math.round(nowMs);
+  if(tsUs <= lastDetectTs) tsUs = lastDetectTs + 1;
+  lastDetectTs = tsUs;
+
+  let result;
+  try{
+    result = handLandmarker.detectForVideo(videoEl, tsUs);
+  }catch(e){
+    return; // keep the loop alive on transient per-frame errors
+  }
+
+  if(!result || !result.landmarks || result.landmarks.length === 0){
+    document.querySelectorAll('.pinch-cursor').forEach(c=>{ c.style.display='none'; });
+    cursorX = cursorY = null;
+    wasPinching = false;
+    return;
+  }
+
+  if(rectCacheDirty || !iconRectCache) refreshRectCache();
+
+  const lm = result.landmarks[0];
+  const thumb = lm[4], index = lm[8];
+  const wrist = lm[0], middleMcp = lm[9];
+
+  // Scale reference: the hand's own span. Guard against a degenerate value.
+  const span = Math.hypot(middleMcp.x - wrist.x, middleMcp.y - wrist.y);
+  if(span < 1e-4) return;
+
+  // z is in a different unit and very noisy on a monocular camera — using it
+  // (as the old code did) wrecked the distance estimate. 2D only.
+  const pinchDist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
+  const pinchRatio = pinchDist / span;
+
+  // Cursor sits at the midpoint of thumb and index — that's where the user
+  // perceives the pinch, rather than at the index tip alone.
+  const rawNx = (thumb.x + index.x) / 2;
+  const rawNy = (thumb.y + index.y) / 2;
+
+  const pt = mapVideoNormToScreen(rawNx, rawNy, videoEl, false);
+  const refPane = paneRectCache && paneRectCache[0];
+  if(!refPane) return;
+  // Convert to a fraction of the VIDEO's own box (that's the space
+  // mapVideoNormToScreen mapped into), then re-apply that fraction to each
+  // pane. The pane carries a 1px border the video does not, so using the pane
+  // rect here would introduce a small constant drift.
+  const vr = videoEl.getBoundingClientRect();
+  if(vr.width < 1 || vr.height < 1) return;
+  let fracX = (pt.x - vr.left) / vr.width;
+  let fracY = (pt.y - vr.top) / vr.height;
+  const lr = refPane.r;
+
+  // Exponential smoothing kills landmark jitter, which otherwise makes it
+  // near-impossible to hold the cursor still over a small icon.
+  if(cursorX === null){ cursorX = fracX; cursorY = fracY; }
+  else {
+    cursorX += (fracX - cursorX) * CURSOR_SMOOTHING;
+    cursorY += (fracY - cursorY) * CURSOR_SMOOTHING;
+  }
+  fracX = cursorX; fracY = cursorY;
+
+  const isPinching = wasPinching
+    ? (pinchRatio < PINCH_RATIO_OFF)   // hysteresis: stay latched until clearly open
+    : (pinchRatio < PINCH_RATIO_ON);
+
+  // Position the cursor in every eye pane. transform instead of left/top so the
+  // compositor handles it without a layout pass.
+  paneRectCache.forEach(({el, r})=>{
+    const cursor = el.querySelector('.pinch-cursor');
+    if(!cursor) return;
+    cursor.style.display = 'block';
+    cursor.style.transform =
+      'translate3d(' + (r.left + fracX*r.width).toFixed(1) + 'px,' +
+                       (r.top  + fracY*r.height).toFixed(1) + 'px,0)' +
+      (isPinching ? ' scale(0.7)' : ' scale(1)');
+    cursor.classList.toggle('active', isPinching);
+  });
+
+  // Hit test against the cached icon rects of pane 0.
+  const px = lr.left + fracX*lr.width;
+  const py = lr.top  + fracY*lr.height;
+  let hitIdx = -1, hitCmd = null;
+  const PAD = 14;
+  for(let i=0;i<iconRectCache.length;i++){
+    const ir = iconRectCache[i].r;
+    if(px >= ir.left-PAD && px <= ir.right+PAD && py >= ir.top-PAD && py <= ir.bottom+PAD){
+      hitIdx = i; hitCmd = iconRectCache[i].cmd;
+    }
+  }
+
+  // Tell the gaze loop to stand down while a hand is visible, otherwise the two
+  // loops fight over the .gaze-target class and the highlight flickers.
+  handSeenUntil = performance.now() + 500;
+  highlightIcon(hitIdx);
+
+  const now = performance.now();
+  if(isPinching && !wasPinching){
+    wasPinching = true;
+    if(hitCmd && now > pinchCooldownUntil){
+      pinchCooldownUntil = now + 900;
+      triggerGazeCommand(hitCmd);
+    }
+  } else if(!isPinching){
+    wasPinching = false;
+  }
+}
+
+function startHandFrameLoop(){
+  const videoEl = getVideoEl();
+  if(!videoEl){
+    // Panes may not be built yet — retry shortly.
+    handRAF = setTimeout(startHandFrameLoop, 120);
+    return;
+  }
+
+  if(typeof videoEl.requestVideoFrameCallback === 'function'){
+    // THERMAL: neural inference every camera frame keeps the GPU pinned at 100%.
+    // A pinch is a slow human gesture — ~20Hz is indistinguishable in feel and
+    // roughly halves hand-tracking power draw at 30fps capture, more at 60.
+    let lastInfer = 0;
+    const step = (now, meta)=>{
+      if(!gogglesActive){ handFrameHandle=null; return; }
+      const hz = thermalHandHz();          // 20 / 10 / 0 depending on heat
+      if(hz > 0 && now - lastInfer >= 1000/hz){
+        lastInfer = now;
+        processHandFrame(videoEl, now);
+      } else if(hz === 0 && cursorX !== null){
+        // Tracking suspended for heat — retire the cursor so it isn't left
+        // frozen on screen looking like a hang.
+        document.querySelectorAll('.pinch-cursor').forEach(c=>c.style.display='none');
+        cursorX = cursorY = null;
+      }
+      handFrameHandle = videoEl.requestVideoFrameCallback(step);
+    };
+    handFrameHandle = videoEl.requestVideoFrameCallback(step);
+    addLog('[HANDS] Synced to camera frames','info');
+  } else {
+    // Safari fallback: rAF gated to 60fps rather than free-running.
+    const gate = makeFrameGate();
+    const loop = (ts)=>{
+      if(!gogglesActive){ handRAF=null; return; }
+      if(gate(ts)) processHandFrame(videoEl, ts);
+      handRAF = requestAnimationFrame(loop);
+    };
+    handRAF = requestAnimationFrame(loop);
+    addLog('[HANDS] Using rAF fallback @60fps','info');
+  }
+}
+
 function stopHandTracking(){
-  if(handRAF) cancelAnimationFrame(handRAF);
+  if(handRAF){ cancelAnimationFrame(handRAF); clearTimeout(handRAF); }
   handRAF=null;
+  const v = getVideoEl();
+  if(handFrameHandle && v && typeof v.cancelVideoFrameCallback === 'function'){
+    try{ v.cancelVideoFrameCallback(handFrameHandle); }catch(e){}
+  }
+  handFrameHandle=null;
+  lastDetectTs=-1;
+  cursorX=cursorY=null;
+  wasPinching=false;
   document.querySelectorAll('.pinch-cursor').forEach(c=>c.style.display='none');
 }
 
@@ -1424,6 +2095,14 @@ async function enterGoggles(){
   gogglesBtn.classList.add('active');
   try{ await document.documentElement.requestFullscreen(); }catch(e){}
   try{ if('wakeLock' in navigator) wakeLockRef = await navigator.wakeLock.request('screen'); }catch(e){}
+  try{
+    if(screen.orientation && screen.orientation.lock){
+      await screen.orientation.lock('landscape');
+      addLog('[GOGGLES] Auto-rotated to landscape','ok');
+    }
+  }catch(e){
+    addLog('[GOGGLES] Could not force landscape — rotate manually or enable auto-rotate','warn');
+  }
   requestOrientationPermission();
   startGazeLoop();
   startHandTracking();
@@ -1440,6 +2119,7 @@ function exitGoggles(){
   stopGazeLoop();
   stopHandTracking();
   if(wakeLockRef){ wakeLockRef.release().catch(()=>{}); wakeLockRef=null; }
+  try{ if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); }catch(e){}
   if(document.fullscreenElement){ document.exitFullscreen().catch(()=>{}); }
   addLog('[GOGGLES] Stereo AR mode disengaged','warn');
 }
@@ -1471,7 +2151,8 @@ setTimeout(()=>{
   const h=new Date().getHours();const g=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
   const text=`${g}, sir. Jarvis online. All systems are nominal and standing by for your instructions.`;
   addMsg('jarvis',text);jarvisSpeak(text);
-  if(!geminiApiKey){ setTimeout(()=>{ reply('I notice no Gemini API key is configured, sir. Tap the gear icon whenever you would like to link my neural core.'); }, 2600); }
+  const noKeyConfigured = aiProvider==='groq' ? !groqApiKey : !geminiApiKey;
+  if(noKeyConfigured){ setTimeout(()=>{ reply(`I notice no ${aiProvider==='groq'?'Groq':'Gemini'} API key is configured, sir. Tap the gear icon whenever you would like to link my neural core.`); }, 2600); }
 },800);
 
 sendBtn.addEventListener('click',()=>{handleCommand(cmdInput.value);cmdInput.value='';});

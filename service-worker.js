@@ -1,10 +1,11 @@
-const CACHE_NAME = 'jarvis-app-v1';
+const CACHE_NAME = 'jarvis-app-v5';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-512-maskable.png',
   './icons/apple-touch-icon.png'
 ];
 
@@ -25,7 +26,9 @@ self.addEventListener('activate', (event) => {
 });
 
 // Network-first for same-origin app shell, cache-first fallback for offline launch.
-// Anything cross-origin (Gemini API, fonts, camera) is left untouched — never cached.
+// Anything cross-origin (LLM API, ElevenLabs, MediaPipe CDN, fonts) is left
+// untouched — never cached. MediaPipe's wasm/model downloads MUST reach the
+// network or hand tracking silently fails to initialise.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
