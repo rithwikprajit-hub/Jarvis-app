@@ -1,5 +1,5 @@
 // J.A.R.V.I.S v9 service worker
-const CACHE_NAME = 'jarvis-app-v9';
+const CACHE_NAME = 'jarvis-app-v9.1';
 const ASSETS = [
   './',
   './index.html',

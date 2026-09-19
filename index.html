@@ -139,6 +139,10 @@
 
   /* Fewer HUD elements while wearing goggles / in AR — declutter like the Iron Man reference */
   body.ar-mode .orbit-icon-extra{display:none;}
+  #gogglesOverlay .orbit-icon-extra{display:block;}
+  #gogglesOverlay .orbit-icon{width:60px;height:60px;margin:-30px;}
+  #gogglesOverlay .orbit-icon-inner{font-size:1.5rem;background:rgba(0,20,40,0.7);}
+  #gogglesOverlay .orbit-label{font-size:0.55rem;color:var(--hud);}
 
   /* Vertical Vision-Pro style floating "screen" panel showing the main Jarvis feed */
   .goggle-screen{position:absolute;top:50%;left:50%;transform:translate(-50%,-54%);width:34%;max-width:190px;aspect-ratio:9/16;background:rgba(0,16,32,0.5);border:1px solid rgba(0,200,255,0.4);border-radius:20px;backdrop-filter:blur(10px);box-shadow:0 0 40px rgba(0,200,255,0.22),inset 0 0 20px rgba(0,200,255,0.05);display:flex;flex-direction:column;padding:12px 10px;gap:6px;pointer-events:none;}
@@ -149,7 +153,12 @@
   .goggle-msg.user{background:rgba(0,100,200,0.12);border-left-color:rgba(0,120,255,0.7);opacity:0.85;}
 
   /* Pinch cursor (hand-tracking) */
-  .pinch-cursor{position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;border:2px solid #ffd54a;box-shadow:0 0 14px rgba(255,213,74,0.7);pointer-events:none;display:none;transition:transform 40ms linear,background 0.12s;z-index:2010;will-change:transform;}
+  .pinch-cursor{position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;border:2px solid #ffd54a;box-shadow:0 0 14px rgba(255,213,74,0.7);pointer-events:none;display:none;transition:background 0.12s;z-index:2010;will-change:transform;}
+  .pinch-cursor::before{content:'';position:absolute;inset:-7px;border-radius:50%;background:conic-gradient(rgba(0,255,140,0.85) calc(var(--dwell,0) * 360deg),transparent 0);-webkit-mask:radial-gradient(circle,transparent 58%,#000 60%);mask:radial-gradient(circle,transparent 58%,#000 60%);}
+  .eye-pane .pinch-cursor{width:26px;height:26px;border-width:2.5px;}
+  .eye-pane.hand-lock .eye-crosshair{opacity:0.25;}
+  .orbit-icon-inner.hand-fired{animation:handFired 0.45s ease-out;}
+  @keyframes handFired{0%{box-shadow:0 0 0 0 rgba(0,255,140,0.9);background:rgba(0,255,140,0.45);}100%{box-shadow:0 0 0 22px rgba(0,255,140,0);}}
   .pinch-cursor::after{content:'';position:absolute;inset:5px;border-radius:50%;background:#ffd54a;opacity:var(--pinch,0);transition:opacity 0.08s;}
   .pinch-cursor.active{background:rgba(255,213,74,0.35);border-color:#fff3b0;}
   #arPinchCursor{position:fixed;}
@@ -266,7 +275,7 @@
 <div class="topbar">
   <div class="logo-group">
     <div class="logo">J.A.R.V.I.S</div>
-    <div class="logo-sub">JUST A RATHER VERY INTELLIGENT SYSTEM // v9.0 AR</div>
+    <div class="logo-sub">JUST A RATHER VERY INTELLIGENT SYSTEM // v9.1 AR</div>
   </div>
   <div class="status-row">
     <div class="status-item"><div class="dot"></div><span>ONLINE</span></div>
@@ -563,6 +572,22 @@
       <select class="settings-input" id="followUpSelect">
         <option value="on">Keep listening briefly after each spoken answer</option>
         <option value="off">Always wait for "Hey Jarvis"</option>
+      </select>
+    </div>
+    <div class="settings-field">
+      <label class="settings-label">PINCH SENSITIVITY</label>
+      <select class="settings-input" id="pinchSensSelect">
+        <option value="low">Low (fewer accidental clicks)</option>
+        <option value="normal">Normal</option>
+        <option value="high">High (light pinch is enough)</option>
+      </select>
+    </div>
+    <div class="settings-field">
+      <label class="settings-label">HOLD HAND ON ICON TO SELECT</label>
+      <select class="settings-input" id="handDwellSelect">
+        <option value="goggles">In goggles only</option>
+        <option value="always">In AR and goggles</option>
+        <option value="off">Off (pinch only)</option>
       </select>
     </div>
     <div class="settings-note" style="margin:0 0 6px;">Whisper runs on this device's own chip (GPU when available) and no audio leaves your browser. It downloads once, then works offline.</div>
@@ -2151,13 +2176,21 @@ function mapVideoNormToElement(nx,ny,video,rect,mirrored){
   return { x:((x*vw-cropX)/cropW)*rect.width, y:((ny*vh-cropY)/cropH)*rect.height };
 }
 const MP_VER='0.10.14';
-const PINCH_ON=0.30, PINCH_OFF=0.42; // thumb–index gap ÷ palm length (scale-free)
+// thumb–index gap ÷ palm length (scale-free). Sensitivity scales both thresholds.
+const PINCH_SENS={ low:0.82, normal:1.0, high:1.22 };
+let pinchSens = LS.get('jarvis_pinch_sens','normal');
+let handDwellPref = LS.get('jarvis_hand_dwell','goggles'); // off | goggles | always
+function pinchOn(){ return 0.30*(PINCH_SENS[pinchSens]||1); }
+function pinchOff(){ return pinchOn()+0.12; }
+const HAND_DWELL_MS=1000;
+const GOGGLE_REACH=1.45; // cursor gain in goggles: small hand moves cover the whole view
 
 const Hands = {
   landmarker:null, loading:null, ready:false, running:false, raf:null,
   lastVideoTime:-1, lastTs:0, detectCost:10, lastDetectAt:0, rateFrames:0, rateT0:0, rate:0,
   fx:new OneEuro(1.0,0.015), fy:new OneEuro(1.0,0.015),
   pinchEma:null, pinching:false, pinchFrames:0, missing:0, hoverIdx:-1, cooldownUntil:0, lastSurface:null,
+  present:false, lastSeen:0, hoverSince:0, dwellFired:false, lastFiredIdx:-1,
   status(t){ document.querySelectorAll('.hand-status').forEach(el=>el.textContent=t); $('arHandStatus').textContent=t; },
   async load(){
     if(this.landmarker) return this.landmarker;
@@ -2167,7 +2200,7 @@ const Hands = {
       const vision=await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/+esm`);
       const fs=await vision.FilesetResolver.forVisionTasks(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/wasm`);
       const opts=d=>({ baseOptions:{ modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task', delegate:d },
-        runningMode:'VIDEO', numHands:1, minHandDetectionConfidence:0.55, minHandPresenceConfidence:0.55, minTrackingConfidence:0.5 });
+        runningMode:'VIDEO', numHands:1, minHandDetectionConfidence:0.5, minHandPresenceConfidence:0.5, minTrackingConfidence:0.5 });
       let lm=null, where='GPU';
       try{ lm=await vision.HandLandmarker.createFromOptions(fs, opts('GPU')); }
       catch(e){ where='CPU'; lm=await vision.HandLandmarker.createFromOptions(fs, opts('CPU')); }
@@ -2215,35 +2248,59 @@ const Hands = {
       if(++this.missing>6) this.lose(); // ride out 1–6 frame dropouts (motion blur)
       return;
     }
-    this.missing=0;
+    this.missing=0; this.present=true; this.lastSeen=now;
     const lm=res.landmarks[0];
     const wl=(res.worldLandmarks && res.worldLandmarks[0] && res.worldLandmarks[0].length) ? res.worldLandmarks[0] : lm;
+    const goggles = s.mode==='goggles';
     // Cursor = midpoint of thumb tip and index tip. Unlike the fingertip alone,
     // it barely moves when you pinch — so the pinch lands where you aimed.
     const rect=s.rectEl.getBoundingClientRect();
     const raw=mapVideoNormToElement((lm[4].x+lm[8].x)/2, (lm[4].y+lm[8].y)/2, s.video, rect, camMirrored);
+    if(goggles){
+      // Reach gain: in a headset the camera sees a narrow crop, so amplify around the
+      // centre — a comfortable hand movement now covers every icon.
+      raw.x = rect.width/2 + (raw.x-rect.width/2)*GOGGLE_REACH;
+      raw.y = rect.height/2 + (raw.y-rect.height/2)*GOGGLE_REACH;
+    }
     const ratio=dist3(wl[4],wl[8]) / (dist3(wl[0],wl[9]) || 1);
     this.pinchEma = this.pinchEma===null ? ratio : this.pinchEma*0.45 + ratio*0.55;
-    const r=this.pinchEma;
+    const r=this.pinchEma, ON=pinchOn(), OFF=pinchOff();
     // Heavier smoothing as the fingers close, light smoothing for fast sweeps
-    const mc = r<0.5 ? 0.35 : 1.0;
+    const mc = r<ON+0.2 ? 0.3 : (goggles ? 0.8 : 1.0);
     this.fx.minCutoff=mc; this.fy.minCutoff=mc;
-    const x=Math.max(0,Math.min(rect.width, this.fx.filter(raw.x, now)));
-    const y=Math.max(0,Math.min(rect.height, this.fy.filter(raw.y, now)));
-    const progress=Math.max(0,Math.min(1,(0.62-r)/(0.62-PINCH_ON)));
-    this.drawCursor(s, rect, x, y, progress);
-    this.updateHover(s, rect.left+x, rect.top+y);
+    let x=Math.max(0,Math.min(rect.width, this.fx.filter(raw.x, now)));
+    let y=Math.max(0,Math.min(rect.height, this.fy.filter(raw.y, now)));
+    const progress=Math.max(0,Math.min(1,(ON+0.32-r)/0.32));
+    // Hover — frozen once the pinch is clearly under way so closing the fingers can't
+    // slide the target onto a neighbouring icon.
+    if(progress<0.35 && !this.pinching) this.updateHover(s, rect.left+x, rect.top+y, now);
+    // Magnetic snap: pull the cursor toward the targeted icon so it feels "grabbed"
+    const tr = this.hoverIdx>=0 && s.icons[this.hoverIdx] ? s.icons[this.hoverIdx].getBoundingClientRect() : null;
+    if(tr && tr.width){
+      const k = goggles ? 0.5 : 0.35;
+      x += ((tr.left+tr.width/2-rect.left)-x)*k; y += ((tr.top+tr.height/2-rect.top)-y)*k;
+    }
+    // Hand dwell: hold the cursor over an icon to select it (no pinch needed)
+    let dwell=0;
+    if(progress>0.2) this.hoverSince=now; // fingers closing → you're pinching, so don't dwell-fire
+    if(this.hoverIdx>=0 && this.dwellEnabled(s) && !this.pinching && !this.dwellFired){
+      dwell=Math.min(1,(now-this.hoverSince)/HAND_DWELL_MS);
+      if(dwell>=1){ this.dwellFired=true; dwell=0; this.fire(s,'dwell'); }
+    }
+    this.drawCursor(s, rect, x, y, progress, dwell);
     if(!this.pinching){
-      if(r<PINCH_ON){ if(++this.pinchFrames>=2){ this.pinching=true; this.pinchFrames=0; this.onPinch(s); } }
+      if(r<ON){ if(++this.pinchFrames>=2){ this.pinching=true; this.pinchFrames=0; this.onPinch(s, rect, x, y); } }
       else this.pinchFrames=0;
-    } else if(r>PINCH_OFF){ this.pinching=false; }
+    } else if(r>OFF){ this.pinching=false; }
     this.setActive(this.pinching);
-    this.status(`HAND ${this.rate||'—'} HZ · ${this.pinching?'PINCH':'OPEN'}`);
+    this.status(`HAND ${this.rate||'—'} HZ · ${this.pinching?'PINCH':(dwell>0?'HOLD':'OPEN')}`);
   },
+  dwellEnabled(s){ return handDwellPref==='always' || (handDwellPref==='goggles' && s.mode==='goggles'); },
   cursors(s){ return s.mode==='goggles' ? [...document.querySelectorAll('.eye-pane .pinch-cursor')] : [$('arPinchCursor')]; },
-  drawCursor(s, rect, x, y, progress){
+  drawCursor(s, rect, x, y, progress, dwell=0){
     const sc=(1-0.3*progress).toFixed(3);
     this.cursors(s).forEach(c=>{
+      c.style.setProperty('--dwell', dwell.toFixed(3));
       const ox = s.mode==='goggles' ? x : rect.left+x, oy = s.mode==='goggles' ? y : rect.top+y;
       c.style.display='block';
       c.style.transform=`translate3d(${(ox-11).toFixed(1)}px,${(oy-11).toFixed(1)}px,0) scale(${sc})`;
@@ -2251,7 +2308,7 @@ const Hands = {
     });
   },
   setActive(on){ document.querySelectorAll('.pinch-cursor').forEach(c=>c.classList.toggle('active',on)); },
-  updateHover(s, sx, sy){
+  updateHover(s, sx, sy, now=performance.now()){
     let best=-1, bestD=Infinity;
     const rects=s.icons.map(el=>el.getBoundingClientRect());
     rects.forEach((r,i)=>{
@@ -2259,14 +2316,18 @@ const Hands = {
       const d=Math.hypot(r.left+r.width/2-sx, r.top+r.height/2-sy);
       if(d<bestD){ bestD=d; best=i; }
     });
-    const radius = best>=0 ? rects[best].width/2+24 : 0;
+    const pad = s.mode==='goggles' ? 38 : 24;
+    const radius = best>=0 ? rects[best].width/2+pad : 0;
     // Sticky hover: keep the current target until the cursor clearly leaves it
     if(this.hoverIdx>=0 && rects[this.hoverIdx] && rects[this.hoverIdx].width){
       const r=rects[this.hoverIdx]; const d=Math.hypot(r.left+r.width/2-sx, r.top+r.height/2-sy);
-      if(d < (r.width/2+24)*1.6 && !(best!==this.hoverIdx && bestD < d*0.6)) best=this.hoverIdx, bestD=0;
+      if(d < (r.width/2+pad)*1.6 && !(best!==this.hoverIdx && bestD < d*0.6)) best=this.hoverIdx, bestD=0;
     }
     const idx = (best>=0 && bestD<=Math.max(radius,1)) ? best : -1;
-    if(idx!==this.hoverIdx){ this.hoverIdx=idx; this.paintHover(s, idx); }
+    if(idx!==this.hoverIdx){
+      this.hoverIdx=idx; this.hoverSince=now; this.dwellFired=false; this.paintHover(s, idx);
+      if(idx>=0){ try{ navigator.vibrate && navigator.vibrate(4); }catch(e){} }
+    }
   },
   paintHover(s, idx){
     document.querySelectorAll('.orbit-icon-inner.hand-target').forEach(e=>e.classList.remove('hand-target'));
@@ -2274,19 +2335,35 @@ const Hands = {
     if(s.mode==='goggles') paneIconCache.forEach(p=>{ if(p.icons[idx]) p.icons[idx].classList.add('hand-target'); });
     else if(s.icons[idx]) s.icons[idx].classList.add('hand-target');
   },
-  onPinch(s){
+  onPinch(s, rect, x, y){
+    // Missed by a little? Take the nearest icon within a generous radius.
+    if(this.hoverIdx<0 && rect){
+      let best=-1, bestD=Infinity;
+      s.icons.forEach((el,i)=>{ const r=el.getBoundingClientRect(); if(!r.width) return;
+        const d=Math.hypot(r.left+r.width/2-(rect.left+x), r.top+r.height/2-(rect.top+y));
+        if(d<bestD && d<r.width*1.6){ bestD=d; best=i; } });
+      if(best>=0){ this.hoverIdx=best; this.paintHover(s,best); }
+    }
+    this.fire(s,'pinch');
+  },
+  fire(s, how){
     const now=performance.now();
     if(this.hoverIdx<0 || now<this.cooldownUntil) return;
-    this.cooldownUntil=now+700;
-    const el=s.icons[this.hoverIdx]; const cmd=el && el.parentElement.getAttribute('data-cmd');
-    try{ navigator.vibrate && navigator.vibrate(15); }catch(e){}
+    this.cooldownUntil=now+800; this.dwellFired=true;
+    const idx=this.hoverIdx;
+    const el=s.icons[idx]; const cmd=el && el.parentElement.getAttribute('data-cmd');
+    try{ navigator.vibrate && navigator.vibrate(how==='pinch'?18:[10,40,10]); }catch(e){}
     chime(false);
+    const flash = s.mode==='goggles' ? paneIconCache.map(p=>p.icons[idx]).filter(Boolean) : [el];
+    flash.forEach(f=>{ f.classList.remove('hand-fired'); void f.offsetWidth; f.classList.add('hand-fired'); });
+    addLog(`[HANDS] Selected ${cmd||'icon'} (${how})`,'info');
     triggerIconCommand(cmd);
   },
   lose(){
     document.querySelectorAll('.pinch-cursor').forEach(c=>{ c.style.display='none'; c.classList.remove('active'); });
     document.querySelectorAll('.orbit-icon-inner.hand-target').forEach(e=>e.classList.remove('hand-target'));
     this.fx.reset(); this.fy.reset(); this.pinchEma=null; this.pinching=false; this.pinchFrames=0; this.hoverIdx=-1;
+    this.present=false; this.dwellFired=false;
   }
 };
 
@@ -2319,18 +2396,40 @@ function buildEyePanes(){
     pane.appendChild(world);
     const cross=document.createElement('div'); cross.className='eye-crosshair'; pane.appendChild(cross);
     const status=document.createElement('div'); status.className='eye-status';
-    status.textContent='LOOK OR PINCH TO SELECT · DOUBLE-TAP TO RECENTER'; pane.appendChild(status);
+    status.textContent='LOOK, PINCH OR HOLD YOUR HAND ON AN ICON · DOUBLE-TAP TO RECENTER'; pane.appendChild(status);
     const hs=document.createElement('div'); hs.className='hand-status'; hs.textContent='HAND TRACKING — INIT'; pane.appendChild(hs);
     const pc=document.createElement('div'); pc.className='pinch-cursor'; pane.appendChild(pc);
     paneIconCache.push({ pane, world, cross, icons:[...pane.querySelectorAll('.orbit-icon-inner')] });
   });
+  layoutGoggleIcons();
   renderGogglePanels();
 }
+// Two columns flanking the chat panel: nothing overlaps the text, every icon is
+// reachable, and neighbours are far enough apart that a pinch can't hit the wrong one.
+const GOGGLE_ORDER={ left:['__mic__','time','diagnostics'], right:['search ai news','joke','who are you'] };
+function layoutGoggleIcons(){
+  paneIconCache.forEach(p=>{
+    const W=p.pane.clientWidth||600, H=p.pane.clientHeight||600;
+    const panelHalf=Math.min(W*0.17, 95);
+    const colX=panelHalf + Math.max(58, W*0.1);
+    const rowY=Math.min(96, H*0.16);
+    p.pane.querySelectorAll('.orbit-icon').forEach(el=>{
+      const cmd=el.getAttribute('data-cmd');
+      let side=GOGGLE_ORDER.left.indexOf(cmd)>=0?-1:1;
+      let row=(side<0?GOGGLE_ORDER.left:GOGGLE_ORDER.right).indexOf(cmd);
+      if(row<0) row=1;
+      el.style.transform=`translate(${(side*colX).toFixed(0)}px,${((row-1)*rowY - H*0.02).toFixed(0)}px)`;
+    });
+  });
+}
+window.addEventListener('resize', ()=>{ if(Goggles.active) layoutGoggleIcons(); });
 
 const Goggles = {
   active:false, raf:null, yaw0:null, pitch0:null, ox:new OneEuro(1.2,0.004), oy:new OneEuro(1.2,0.004),
+  offX:0, offY:0, handLock:false, lockBlend:0,
   gazeIdx:-1, gazeStart:0, gazeFired:false, limiter:makeLimiter(TARGET_FPS),
-  recenter(){ this.yaw0=null; this.ox.reset(); this.oy.reset(); },
+  recenter(){ this.yaw0=null; this.ox.reset(); this.oy.reset(); this.offX=0; this.offY=0; },
+  handVisible(){ return Hands.present && performance.now()-Hands.lastSeen < 600; },
   loop(ts){
     if(!this.active){ this.raf=null; return; }
     this.raf=requestAnimationFrame(t=>this.loop(t));
@@ -2339,20 +2438,35 @@ const Goggles = {
     const pr=ref.pane.getBoundingClientRect();
     // World-lock the HUD: turning your head moves the icons the other way,
     // so you can bring any icon under the crosshair just by looking at it.
-    if(lastOrient){
+    // Hand-lock: while your hand is up, the HUD stops following head sway and holds
+    // still in your view, so the pinch cursor and the icons stay lined up.
+    const hand=this.handVisible();
+    if(hand!==this.handLock){
+      this.handLock=hand;
+      if(!hand && lastOrient){ // re-anchor so the HUD doesn't jump when the hand drops
+        const h=headAngles(lastOrient), ppd=pr.width/70;
+        this.yaw0 = h.yaw + this.offX/ppd; this.pitch0 = h.pitch - this.offY/ppd; this.ox.reset(); this.oy.reset();
+      }
+      paneIconCache.forEach(p=>p.pane.classList.toggle('hand-lock', hand));
+    }
+    if(lastOrient && !this.handLock){
       const h=headAngles(lastOrient);
       if(this.yaw0===null){ this.yaw0=h.yaw; this.pitch0=h.pitch; }
       const dy=((h.yaw-this.yaw0+540)%360)-180, dp=h.pitch-this.pitch0;
       const ppd=pr.width/70;
-      const x=this.ox.filter(-dy*ppd, ts), y=this.oy.filter(dp*ppd, ts);
-      const tf=`translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
-      paneIconCache.forEach(p=>{ p.world.style.transform=tf; });
+      this.offX=this.ox.filter(-dy*ppd, ts); this.offY=this.oy.filter(dp*ppd, ts);
     }
+    // Small crossed disparity so the HUD floats in front of the camera image
+    const disp=Math.max(3, pr.width*0.008);
+    paneIconCache.forEach((p,i)=>{
+      const sx=this.offX + (i===0 ? disp : -disp);
+      p.world.style.transform=`translate3d(${sx.toFixed(1)}px,${this.offY.toFixed(1)}px,0)`;
+    });
     // Head-gaze dwell selection
     const cx=pr.left+pr.width/2, cy=pr.top+pr.height/2;
     let best=-1, bestD=Infinity;
     ref.icons.forEach((icon,i)=>{ const r=icon.getBoundingClientRect(); if(!r.width) return; const d=Math.hypot(r.left+r.width/2-cx, r.top+r.height/2-cy); if(d<bestD){ bestD=d; best=i; } });
-    const idx = bestD<44 ? best : -1;
+    const idx = (!this.handLock && bestD<44) ? best : -1; // gaze pauses while you use your hand
     if(idx!==this.gazeIdx){
       this.gazeIdx=idx; this.gazeStart=ts; this.gazeFired=false;
       paneIconCache.forEach(p=>p.icons.forEach((ic,i)=>ic.classList.toggle('gaze-target', i===idx)));
@@ -2387,7 +2501,7 @@ async function enterGoggles(){
   Goggles.raf=requestAnimationFrame(t=>Goggles.loop(t));
   Hands.start();
   addLog('[GOGGLES] Stereo AR engaged','ok');
-  reply('Goggles engaged, sir. Look at an icon to select it, pinch it, or just speak.');
+  reply('Goggles engaged, sir. Look at an icon, or raise your hand and pinch it. You can also hold your hand over an icon for a second, or just speak.');
 }
 function exitGoggles(){
   if(!Goggles.active) return;
@@ -2524,6 +2638,8 @@ function openSettings(){
   setSelect('sttLangSelect', sttLangPref, 'auto');
   setSelect('wakeEngineSelect', wakeEnginePref, 'auto');
   setSelect('followUpSelect', followUpEnabled?'on':'off');
+  setSelect('pinchSensSelect', pinchSens, 'normal');
+  setSelect('handDwellSelect', handDwellPref, 'goggles');
   setSelect('voiceEngineSelect', voiceEngine, 'browser');
   $('elevenlabsKeyInput').value=elevenlabsKey;
   if(knownVoiceIds.includes(elevenlabsVoiceId)){ $('elevenlabsVoiceSelect').value=elevenlabsVoiceId; $('elevenlabsCustomVoiceInput').value=''; }
@@ -2549,6 +2665,7 @@ $('settingsSave').addEventListener('click', ()=>{
   sttLangPref=$('sttLangSelect').value;
   wakeEnginePref=$('wakeEngineSelect').value;
   followUpEnabled=$('followUpSelect').value==='on';
+  pinchSens=$('pinchSensSelect').value; handDwellPref=$('handDwellSelect').value;
   voiceEngine=$('voiceEngineSelect').value;
   elevenlabsKey=$('elevenlabsKeyInput').value.trim();
   const vs=$('elevenlabsVoiceSelect').value;
@@ -2560,6 +2677,7 @@ $('settingsSave').addEventListener('click', ()=>{
   LS.set('jarvis_stt_engine',sttEngine); LS.set('jarvis_whisper_model',whisperModel);
   LS.set('jarvis_stt_lang',sttLangPref); LS.set('jarvis_wake_engine',wakeEnginePref);
   LS.set('jarvis_followup',followUpEnabled?'on':'off');
+  LS.set('jarvis_pinch_sens',pinchSens); LS.set('jarvis_hand_dwell',handDwellPref);
   LS.set('jarvis_voice_engine',voiceEngine); LS.set('jarvis_elevenlabs_key',elevenlabsKey); LS.set('jarvis_elevenlabs_voice',elevenlabsVoiceId);
 
   refreshGeminiStatus();
