@@ -1,7 +1,7 @@
 {
   "name": "J.A.R.V.I.S — AR Assistant",
   "short_name": "Jarvis",
-  "description": "Iron Man style AR HUD assistant with voice, wake word, and stereo goggles mode.",
+  "description": "Iron Man style AR HUD assistant — on-device AI, 'Hey Jarvis' wake word, hand tracking and stereo goggles mode.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -22,10 +22,17 @@
       "purpose": "any"
     },
     {
-      "src": "icons/icon-512-maskable.png",
+      "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
-  ]
+  ],
+  "version": "9.0"
 }
