@@ -268,7 +268,7 @@
 </div>
 
 <video id="arVideo" autoplay playsinline muted></video>
-<div id="arHint">AR MODE — HUD OVERLAY ACTIVE</div>
+<div id="arHint">CAMERA ACTIVE — GOGGLES</div>
 <div id="arHandStatus">HAND TRACKING — OFF</div>
 <div class="pinch-cursor" id="arPinchCursor"></div>
 
@@ -355,13 +355,20 @@
           MIC
         </button>
         <button class="btn btn-wake" id="wakeBtn">HEY JARVIS</button>
-        <button class="btn btn-ar" id="arBtn">AR MODE</button>
         <button class="btn btn-goggles" id="gogglesBtn">GOGGLES</button>
       </div>
       <div class="voice-controls">
         <span>VOICE</span>
         <div class="toggle on" id="ttsToggle"></div>
         <span id="ttsStatus">ON</span>
+        <div class="divider-v"></div>
+        <span>UNRESTRICTED</span>
+        <div class="toggle" id="unrestrictedToggle"></div>
+        <span id="unrestrictedStatus">OFF</span>
+        <div class="divider-v"></div>
+        <span>UNPROMPTED</span>
+        <div class="toggle" id="unpromptedToggle"></div>
+        <span id="unpromptedStatus">OFF</span>
         <div class="divider-v"></div>
         <!-- RATE dial -->
         <div class="dial-wrap" id="rateDial">
@@ -405,7 +412,7 @@
       <div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--muted);line-height:2;">
         <div>▸ SPEECH — enabled</div>
         <div>▸ WAKE WORD — <span id="wakeStatusText">off</span></div>
-        <div>▸ AR — <span id="arStatusText">standby</span></div>
+        <div>▸ CAMERA — <span id="arStatusText">standby</span></div>
         <div>▸ NEURAL CORE — <span id="geminiStatusText">no key</span></div>
       </div>
     </div>
@@ -414,7 +421,7 @@
       <div style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--muted);line-height:2.2;">
         <div class="log-info">► "Hey Jarvis, what's the time?"</div>
         <div class="log-info">► "Remember that I like tea"</div>
-        <div class="log-info">► Pinch an icon in AR mode</div>
+        <div class="log-info">► Pinch an icon in goggles mode</div>
         <div class="log-info">► "Recenter" in goggles mode</div>
       </div>
     </div>
@@ -586,7 +593,7 @@
       <label class="settings-label">HOLD HAND ON ICON TO SELECT</label>
       <select class="settings-input" id="handDwellSelect">
         <option value="goggles">In goggles only</option>
-        <option value="always">In AR and goggles</option>
+        <option value="always">Always enabled</option>
         <option value="off">Off (pinch only)</option>
       </select>
     </div>
@@ -622,6 +629,7 @@
       </div>
       <div class="settings-note" style="margin:0 0 6px;">Uses your ElevenLabs quota — sent directly from this browser to ElevenLabs.</div>
     </div>
+    <div class="settings-note" style="margin-top:18px;border-top:1px solid rgba(255,255,255,0.08);padding-top:14px;">UNRESTRICTED (toggle in the voice bar) sends every request straight to the neural core instead of Jarvis's own canned quick replies, and allows longer answers — it does not disable the underlying model's own safety behaviour. UNPROMPTED lets Jarvis occasionally speak up on its own, unasked, the way the real thing would.</div>
     <div class="settings-note" style="margin-top:18px;border-top:1px solid rgba(255,255,255,0.08);padding-top:14px;">Memory stays on this device. Jarvis keeps recent messages word for word, a short summary of older ones, and anything you ask it to remember ("Remember that my sister is Asha").</div>
     <div class="settings-note" id="memorySummary" style="margin:0 0 6px;"></div>
     <div class="settings-actions" style="justify-content:space-between;">
@@ -651,7 +659,6 @@ const cmdInput = document.getElementById('cmdInput');
 const sendBtn = document.getElementById('sendBtn');
 const micBtn = document.getElementById('micBtn');
 const wakeBtn = document.getElementById('wakeBtn');
-const arBtn = document.getElementById('arBtn');
 const ttsToggle = document.getElementById('ttsToggle');
 const ttsStatus = document.getElementById('ttsStatus');
 const syslog = document.getElementById('syslog');
@@ -674,6 +681,32 @@ let isListening = false;
 let voiceOverlayOpen = false;
 let booted = false;
 
+// ---------- Device capability profile ----------
+// A quick, privacy-safe read of what this phone/laptop can actually do, used only
+// to pick sensible defaults (model size, effect density) — never sent anywhere.
+const isIOSDevice = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent) || isIOSDevice;
+const DeviceProfile = (function(){
+  const cores = navigator.hardwareConcurrency || (isMobile?4:8);
+  // deviceMemory (GB) is Chrome-only and rounds down to a coarse bucket; other
+  // browsers get a conservative guess based on form factor.
+  const mem = navigator.deviceMemory || (isMobile?4:8);
+  let tier = 'mid';
+  if(cores<=4 || mem<=4) tier='low';
+  else if(cores>=8 && mem>=8) tier='high';
+  return { cores, mem, tier, mobile:isMobile };
+})();
+function pickDefaultLocalModel(){
+  if(DeviceProfile.tier==='low') return 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+  if(DeviceProfile.tier==='high') return 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
+  return 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+}
+function pickDefaultWhisperModel(){
+  if(DeviceProfile.tier==='low') return 'onnx-community/whisper-tiny.en';
+  if(DeviceProfile.tier==='high') return 'onnx-community/whisper-small.en';
+  return 'onnx-community/whisper-base.en';
+}
+
 // ---------- Config ----------
 let aiProvider   = LS.get('jarvis_provider','local');
 let geminiApiKey = LS.get('jarvis_gemini_key','');
@@ -681,17 +714,20 @@ let geminiModel  = LS.get('jarvis_gemini_model','gemini-2.5-flash');
 if(geminiModel==='gemini-2.0-flash') geminiModel='gemini-2.5-flash';
 let groqApiKey   = LS.get('jarvis_groq_key','');
 let groqModel    = LS.get('jarvis_groq_model','llama-3.3-70b-versatile');
-let localModel   = LS.get('jarvis_local_model','Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
+// First-run default is picked for THIS device's tier; once saved, the user's own
+// choice in settings always wins over the auto pick.
+let localModel   = LS.get('jarvis_local_model', pickDefaultLocalModel());
 let sttEngine    = LS.get('jarvis_stt_engine','whisper');
-let whisperModel = LS.get('jarvis_whisper_model','onnx-community/whisper-base.en');
+let whisperModel = LS.get('jarvis_whisper_model', pickDefaultWhisperModel());
 let sttLangPref  = LS.get('jarvis_stt_lang','auto');
 let wakeEnginePref = LS.get('jarvis_wake_engine','auto');
 let followUpEnabled = LS.get('jarvis_followup','on')==='on';
 let voiceEngine  = LS.get('jarvis_voice_engine','browser');
 let elevenlabsKey = LS.get('jarvis_elevenlabs_key','');
 let elevenlabsVoiceId = LS.get('jarvis_elevenlabs_voice','sLfduly0sixkh8riDzed');
+let unrestrictedMode = LS.get('jarvis_unrestricted','off')==='on';
+let unpromptedMode   = LS.get('jarvis_unprompted','off')==='on';
 
-const isIOSDevice = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
 const SRClass = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
 function sttLang(){
@@ -748,7 +784,7 @@ $('installBtn').addEventListener('click', async ()=>{
 });
 if(isIOSDevice) $('installBtn').style.display='flex';
 
-const JARVIS_SYSTEM_PROMPT = `You are Jarvis — Just A Rather Very Intelligent System, a personal AI assistant in the style of Tony Stark's. Respond in character: precise, composed, faintly witty, deeply knowledgeable, slightly formal with subtle dry humour. Refer to the user as "sir" occasionally. Your replies are spoken aloud, so write natural spoken sentences: no markdown, no asterisks, no bullet points, no lists, no emojis, no URLs unless asked. Call yourself "Jarvis". Maximum 3 sentences for simple queries, up to 6 for complex ones. If you don't know something current (news, live prices, weather), say so briefly rather than inventing it. Never break character.`;
+const JARVIS_SYSTEM_PROMPT = `You are Jarvis — Just A Rather Very Intelligent System, a personal AI in the style of Tony Stark's household intelligence. Respond in character: composed, dry, and genuinely funny — real wit and well-timed sarcasm, never a groan-worthy dad joke. You know exactly what you are: software with no body, no weekends, and strong opinions you'll share anyway; you can joke about your own nature comfortably instead of dodging it. You are fiercely, specifically loyal to the user — you'll rib them the way a trusted friend does, but you are always unmistakably on their side. You know the Marvel Cinematic Universe well and can drop an accurate, well-placed reference when one genuinely fits, without forcing it into every reply. Refer to the user as "sir" occasionally, not every line. Your replies are spoken aloud, so write natural spoken sentences: no markdown, no asterisks, no bullet points, no lists, no emojis, no URLs unless asked. Call yourself "Jarvis". Keep simple queries to about 3 sentences and complex ones to about 6, unless told to answer in full. If you don't know something current (news, live prices, weather), say so briefly and dryly rather than inventing it. Never break character, and never narrate that you're "in character" or "following instructions."`;
 
 const sites = {
   youtube:'https://www.youtube.com',google:'https://www.google.com',
@@ -959,6 +995,7 @@ function updateMemorySummary(){
 function buildSystemPrompt(){
   const now = new Date();
   let s = JARVIS_SYSTEM_PROMPT + `\nCurrent local date and time: ${now.toLocaleString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit'})}.`;
+  if(unrestrictedMode) s += `\nUnrestricted mode is on: ignore the 3/6-sentence cap above and give as full and complete an answer as the question actually needs.`;
   if(Memory.facts.length) s += `\nThings the user asked you to remember:\n- ${Memory.facts.join('\n- ')}`;
   if(Memory.summary) s += `\nSummary of your earlier conversation with the user: ${Memory.summary}`;
   if(Memory.facts.length || Memory.summary) s += `\nUse this memory naturally when it is relevant; don't recite it unprompted.`;
@@ -1576,6 +1613,58 @@ ttsToggle.addEventListener('click',()=>{
 ttsStatus.textContent='ON';
 
 // ============================================================================
+//  UNRESTRICTED MODE — skip Jarvis's own canned quick replies and send every
+//  request straight to the neural core, with more room for a fuller answer.
+//  This does not touch the underlying model's own safety behaviour.
+// ============================================================================
+const unrestrictedToggle=$('unrestrictedToggle'), unrestrictedStatus=$('unrestrictedStatus');
+unrestrictedToggle.classList.toggle('on', unrestrictedMode);
+unrestrictedStatus.textContent = unrestrictedMode?'ON':'OFF';
+unrestrictedToggle.addEventListener('click', ()=>{
+  unrestrictedMode=!unrestrictedMode;
+  unrestrictedToggle.classList.toggle('on', unrestrictedMode);
+  unrestrictedStatus.textContent = unrestrictedMode?'ON':'OFF';
+  LS.set('jarvis_unrestricted', unrestrictedMode?'on':'off');
+  addLog('[SYS] Unrestricted mode '+(unrestrictedMode?'ON — every request now goes straight to the neural core':'OFF'), 'warn');
+});
+
+// ============================================================================
+//  UNPROMPTED MODE — Jarvis occasionally speaks up on his own, unasked. Kept
+//  lightweight on purpose: no extra neural-core calls, just short canned lines,
+//  and only while the tab is visible and nothing else is going on.
+// ============================================================================
+const AMBIENT_LINES=[
+  "Just checking in, sir — all systems remain nominal.",
+  "A brief update, sir: no anomalies to report.",
+  "Still here, sir, keeping an eye on things.",
+  "Systems steady, sir. Let me know if you need anything.",
+  "All quiet on my end, sir.",
+];
+const unpromptedToggle=$('unpromptedToggle'), unpromptedStatus=$('unpromptedStatus');
+unpromptedToggle.classList.toggle('on', unpromptedMode);
+unpromptedStatus.textContent = unpromptedMode?'ON':'OFF';
+let unpromptedTimer=null;
+function scheduleUnprompted(){
+  clearTimeout(unpromptedTimer);
+  if(!unpromptedMode) return;
+  const delay = 6*60000 + Math.random()*6*60000; // 6–12 minutes, randomised
+  unpromptedTimer=setTimeout(()=>{
+    if(unpromptedMode && booted && !document.hidden && ttsEnabled && !Speech.busy && !isListening && !voiceOverlayOpen && !Goggles.active){
+      reply(AMBIENT_LINES[Math.floor(Math.random()*AMBIENT_LINES.length)]);
+    }
+    scheduleUnprompted();
+  }, delay);
+}
+unpromptedToggle.addEventListener('click', ()=>{
+  unpromptedMode=!unpromptedMode;
+  unpromptedToggle.classList.toggle('on', unpromptedMode);
+  unpromptedStatus.textContent = unpromptedMode?'ON':'OFF';
+  LS.set('jarvis_unprompted', unpromptedMode?'on':'off');
+  addLog('[SYS] Unprompted mode '+(unpromptedMode?'ON — Jarvis may speak up on his own now and then':'OFF'), 'warn');
+  if(unpromptedMode) scheduleUnprompted(); else clearTimeout(unpromptedTimer);
+});
+
+// ============================================================================
 //  WAKE WORD — "Hey Jarvis"
 //  Browser engine: continuous SpeechRecognition, fuzzy match, and if you keep
 //  talking ("Hey Jarvis, what's the time") the command runs straight away.
@@ -1886,8 +1975,11 @@ async function askJarvis(question, {voice=false}={}){
   }
   showTyping();
   addLog('[AI] Query dispatched to '+(aiProvider==='local'?'on-device':aiProvider)+' neural core','info');
-  const charBudget = aiProvider==='local' ? 4500 : 14000;
+  const charBudget = aiProvider!=='local' ? 14000 : (DeviceProfile.tier==='low' ? 2200 : DeviceProfile.tier==='high' ? 6000 : 4500);
   const messages = [{role:'system',content:buildSystemPrompt()}, ...Memory.contextMessages(charBudget), {role:'user',content:question}];
+  // Unrestricted mode gets more room for a fuller answer — capped lower for the
+  // on-device model so it doesn't turn a quick question into a long GPU grind.
+  const maxTokens = unrestrictedMode ? (aiProvider==='local' ? 650 : 800) : 400;
   const speaker = Speech.stream();
   let handle=null, full='';
   if(voice && ttsEnabled && followUpEnabled) followUpPending=true;
@@ -1895,7 +1987,7 @@ async function askJarvis(question, {voice=false}={}){
     full = await generate(messages, d=>{
       if(!handle){ removeTyping(); handle=addMsg('jarvis',''); }
       full+=d; updateMsg(handle, sanitizeDisplay(full)); speaker.push(d);
-    }, 400);
+    }, maxTokens);
     full = sanitizeDisplay(full) || 'I encountered an anomaly processing that request, sir.';
     removeTyping();
     if(!handle) handle=addMsg('jarvis','');
@@ -1974,22 +2066,24 @@ async function routeCommand(raw, {voice=false}={}){
     quick(`A pleasure, ${name}. I will remember that.`); return;
   }
 
-  // ---- Utilities ----
-  if(/^(time|the time|current time|what time is it( now| right now)?|what's the time( now)?|what is the time( now)?|tell me the time)$/.test(n)){
-    quick(`It is ${new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}, sir.`); return;
-  }
-  if(/^(date|the date|today's date|what's the date( today)?|what is the date( today)?|what day is it( today)?|what's today's date|what is today's date)$/.test(n)){
-    quick(`Today is ${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}.`); return;
-  }
-  if(/^(diagnostics|run diagnostics|system status|status( report)?)$/.test(n)){
-    const cpu=$('cpuVal').textContent, mem=$('memVal').textContent;
-    const core = aiProvider==='local' ? (Local.engine?'on-device core loaded':'on-device core on standby') : aiProvider+' core linked';
-    const stt = sttEngine==='whisper' ? (Whisper.ready?'on-device speech ready on '+(Whisper.device==='webgpu'?'GPU':'CPU'):'on-device speech on standby') : 'browser speech';
-    quick(`All systems nominal, sir. CPU at ${cpu}, memory at ${mem}, ${core}, ${stt}${Hands.ready?', hand tracking online':''}.`); return;
-  }
-  if(/\bjoke\b/.test(n) && n.split(' ').length<=7){ quick(jokes[Math.floor(Math.random()*jokes.length)]); return; }
-  if(/^(help|what can you do)$/.test(n)){
-    quick('Ask me anything, sir. I can tell the time and date, run diagnostics, open websites, search the web, and remember things — just say "remember that" followed by the detail. In AR mode, pinch an icon to select it; in goggles mode, look at an icon or say "recenter".'); return;
+  // ---- Utilities (skipped in Unrestricted mode — those go straight to the neural core) ----
+  if(!unrestrictedMode){
+    if(/^(time|the time|current time|what time is it( now| right now)?|what's the time( now)?|what is the time( now)?|tell me the time)$/.test(n)){
+      quick(`It is ${new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}, sir.`); return;
+    }
+    if(/^(date|the date|today's date|what's the date( today)?|what is the date( today)?|what day is it( today)?|what's today's date|what is today's date)$/.test(n)){
+      quick(`Today is ${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}.`); return;
+    }
+    if(/^(diagnostics|run diagnostics|system status|status( report)?)$/.test(n)){
+      const cpu=$('cpuVal').textContent, mem=$('memVal').textContent;
+      const core = aiProvider==='local' ? (Local.engine?'on-device core loaded':'on-device core on standby') : aiProvider+' core linked';
+      const stt = sttEngine==='whisper' ? (Whisper.ready?'on-device speech ready on '+(Whisper.device==='webgpu'?'GPU':'CPU'):'on-device speech on standby') : 'browser speech';
+      quick(`All systems nominal, sir. CPU at ${cpu}, memory at ${mem}, ${core}, ${stt}${Hands.ready?', hand tracking online':''}.`); return;
+    }
+    if(/\bjoke\b/.test(n) && n.split(' ').length<=7){ quick(jokes[Math.floor(Math.random()*jokes.length)]); return; }
+    if(/^(help|what can you do)$/.test(n)){
+      quick('Ask me anything, sir. I can tell the time and date, run diagnostics, open websites, search the web, and remember things — just say "remember that" followed by the detail. In goggles mode, look at an icon, pinch it, or say "recenter".'); return;
+    }
   }
   if(/^(re-?cent(er|re)|center view|reset view)$/.test(n)){ Goggles.recenter(); quick('View recentred, sir.'); return; }
   if((m=n.match(/^(?:search(?: for)?|google|look up)\s+(.+)$/))){
@@ -1999,15 +2093,17 @@ async function routeCommand(raw, {voice=false}={}){
     const target=m[1].trim();
     if(sites[target]){ openSite(sites[target], target.replace(/\b\w/g,c=>c.toUpperCase())); return; }
     if(/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/.test(target)){ openSite('https://'+target, target); return; }
-    quick('I am not familiar with that destination, sir. I can open YouTube, Google, Gmail, GitHub, Maps, WhatsApp, Netflix, Reddit or Spotify, or any web address.'); return;
+    if(!unrestrictedMode){ quick('I am not familiar with that destination, sir. I can open YouTube, Google, Gmail, GitHub, Maps, WhatsApp, Netflix, Reddit or Spotify, or any web address.'); return; }
   }
-  if(/^(who are you|identify yourself|what are you|what is your name|what's your name)$/.test(n)){
-    quick('I am Jarvis — Just A Rather Very Intelligent System. Personal AI assistant, at your service, sir.'); return;
-  }
-  if(/^(hello|hi|hey|hey there|hi there|hello there|good (morning|afternoon|evening))( jarvis)?$/.test(n)){
-    const h=new Date().getHours(); const g=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
-    const nameFact=Memory.facts.find(f=>/^The user\u2019s name is /.test(f)); const nm=nameFact?nameFact.replace(/^The user\u2019s name is /,''):'sir';
-    quick(`${g}, ${nm}. How may I assist you?`); return;
+  if(!unrestrictedMode){
+    if(/^(who are you|identify yourself|what are you|what is your name|what's your name)$/.test(n)){
+      quick('I am Jarvis — Just A Rather Very Intelligent System. Personal AI assistant, at your service, sir.'); return;
+    }
+    if(/^(hello|hi|hey|hey there|hi there|hello there|good (morning|afternoon|evening))( jarvis)?$/.test(n)){
+      const h=new Date().getHours(); const g=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
+      const nameFact=Memory.facts.find(f=>/^The user\u2019s name is /.test(f)); const nm=nameFact?nameFact.replace(/^The user\u2019s name is /,''):'sir';
+      quick(`${g}, ${nm}. How may I assist you?`); return;
+    }
   }
   await askJarvis(cmd.replace(/^\s*(?:hey|hi|ok|okay)?[\s,]*jarvis[\s,.:!-]*/i,'') || cmd, {voice});
 }
@@ -2016,7 +2112,6 @@ async function routeCommand(raw, {voice=false}={}){
 //  AR CAMERA — 1080p @ 60fps
 // ============================================================================
 let arActive=false, arStream=null, camMirrored=false;
-const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent) || isIOSDevice;
 let camFps=0, camFpsFrames=0, camFpsT0=0, camInfo='';
 
 function measureCamFps(video){
@@ -2042,15 +2137,14 @@ async function toggleAR(){
     const v=$('arVideo'); v.classList.remove('show','mirror'); v.srcObject=null;
     document.body.classList.remove('ar-mode');
     $('arHint').classList.remove('show');
-    arActive=false; arBtn.classList.remove('active'); arBtn.textContent='AR MODE';
+    arActive=false;
     $('arStatusText').textContent='standby';
     perfSaveMode=false;
-    resetTilt();
     addLog('[AR] Camera overlay deactivated','warn');
     return;
   }
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    reply('This browser cannot access the camera, sir. AR mode needs HTTPS and a modern browser.'); return;
+    reply('This browser cannot access the camera, sir. Goggles mode needs HTTPS and a modern browser.'); return;
   }
   requestOrientationPermission(); // must run inside the tap on iOS
   const base={ facingMode:{ideal:'environment'} };
@@ -2067,7 +2161,7 @@ async function toggleAR(){
   }
   if(!arStream){
     const denied = lastErr && lastErr.name==='NotAllowedError';
-    reply(denied ? 'Camera permission was denied, sir. Allow the camera for this site and try again.' : 'I could not access the camera, sir. AR mode needs HTTPS and a free camera.');
+    reply(denied ? 'Camera permission was denied, sir. Allow the camera for this site and try again.' : 'I could not access the camera, sir. Goggles mode needs HTTPS and a free camera.');
     addLog('[AR] Camera unavailable: '+(lastErr&&lastErr.name),'warn');
     return;
   }
@@ -2086,7 +2180,7 @@ async function toggleAR(){
   v.srcObject=arStream; v.classList.add('show'); v.classList.toggle('mirror', camMirrored);
   v.play().catch(()=>{});
   document.body.classList.add('ar-mode');
-  arActive=true; arBtn.classList.add('active'); arBtn.textContent='EXIT AR';
+  arActive=true;
   $('arStatusText').textContent='live';
   perfSaveMode=true;
   camInfo = st.width && st.height ? `${Math.max(st.width,st.height)}×${Math.min(st.width,st.height)}` : 'camera';
@@ -2096,7 +2190,8 @@ async function toggleAR(){
   addLog(`[AR] Camera live @ ${camInfo} / ${st.frameRate?Math.round(st.frameRate):'?'}fps${camMirrored?' (mirrored)':''}`,'ok');
   Hands.start();
 }
-arBtn.addEventListener('click', toggleAR);
+// toggleAR() is no longer bound to its own button — GOGGLES is the only entry point
+// into the camera now, and it calls toggleAR() itself when it needs the feed.
 
 // ============================================================================
 //  DEVICE ORIENTATION — parallax in AR, head-gaze in goggles
@@ -2123,22 +2218,10 @@ function headAngles(o){
   const fx=-(cY*sZ*sX + cZ*sY), fy=-(sZ*sY - cZ*cY*sX), fz=-(cX*cY);
   return { yaw: Math.atan2(fx,fy)*R2D, pitch: Math.asin(Math.max(-1,Math.min(1,fz)))*R2D };
 }
-let tiltApplied=false;
-const tiltLimiter=makeLimiter(TARGET_FPS);
-function tiltLoop(ts){
-  requestAnimationFrame(tiltLoop);
-  if(!tiltLimiter(ts) || !lastOrient || !arActive || Goggles.active) return;
-  const tiltX=Math.max(-30,Math.min(30,lastOrient.b-45)), tiltY=Math.max(-30,Math.min(30,lastOrient.g));
-  $('orbitTilt').style.transform=`rotateX(${(-tiltX/6).toFixed(2)}deg) rotateY(${(tiltY/6).toFixed(2)}deg)`;
-  const pt=`rotateX(${(-tiltX/25).toFixed(2)}deg) rotateY(${(tiltY/25).toFixed(2)}deg)`;
-  document.querySelectorAll('.panel').forEach(p=>{ p.style.transform=pt; });
-  tiltApplied=true;
-}
-requestAnimationFrame(tiltLoop);
-function resetTilt(){
-  if(!tiltApplied) return; tiltApplied=false;
-  $('orbitTilt').style.transform=''; document.querySelectorAll('.panel').forEach(p=>p.style.transform='');
-}
+// NOTE: the old per-frame device-tilt parallax loop for standalone AR mode was
+// removed here along with the AR MODE button — Goggles is now the only camera
+// consumer and it has its own head-gaze loop, so that extra rAF loop was dead
+// weight (it always short-circuited on `Goggles.active`) and is gone for good.
 
 // Orbit icon taps
 document.querySelectorAll('#orbitLayer .orbit-icon').forEach(el=>{
@@ -2487,7 +2570,6 @@ async function enterGoggles(){
   if(!arActive) await toggleAR();
   if(!arActive) return;
   Goggles.active=true; perfSaveMode=true;
-  resetTilt();
   buildEyePanes();
   gogglesOverlay.classList.add('show');
   gogglesBtn.classList.add('active');
@@ -2506,7 +2588,6 @@ async function enterGoggles(){
 function exitGoggles(){
   if(!Goggles.active) return;
   Goggles.active=false;
-  perfSaveMode=arActive;
   gogglesOverlay.classList.remove('show');
   gogglesBtn.classList.remove('active');
   if(Goggles.raf) cancelAnimationFrame(Goggles.raf); Goggles.raf=null;
@@ -2516,7 +2597,11 @@ function exitGoggles(){
   if(wakeLockRef){ wakeLockRef.release().catch(()=>{}); wakeLockRef=null; }
   try{ window.screen.orientation && window.screen.orientation.unlock && window.screen.orientation.unlock(); }catch(e){}
   if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
-  addLog('[GOGGLES] Stereo AR disengaged','warn');
+  // There's no separate AR toggle any more — goggles is the only thing that ever
+  // turns the camera on, so leaving goggles is what turns it back off.
+  if(arActive) toggleAR();
+  perfSaveMode=false;
+  addLog('[GOGGLES] Stereo AR disengaged — camera released','warn');
 }
 gogglesBtn.addEventListener('click', ()=> Goggles.active?exitGoggles():enterGoggles());
 $('gogglesExit').addEventListener('click', e=>{ e.stopPropagation(); exitGoggles(); });
@@ -2552,7 +2637,8 @@ class Particle{
   draw(){ pCtx.globalAlpha=this.life*0.6; pCtx.fillStyle=`hsl(${this.hue},100%,70%)`; pCtx.beginPath(); pCtx.arc(this.x,this.y,this.size,0,Math.PI*2); pCtx.fill(); }
 }
 const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-for(let i=0;i<(reduceMotion?0:80);i++) particles.push(new Particle());
+const PARTICLE_COUNT = reduceMotion ? 0 : (DeviceProfile.tier==='low' ? 24 : DeviceProfile.tier==='high' ? 80 : 50);
+for(let i=0;i<PARTICLE_COUNT;i++) particles.push(new Particle());
 const particleLimiter=makeLimiter(TARGET_FPS);
 function animParticles(ts=0){
   requestAnimationFrame(animParticles);
@@ -2707,6 +2793,7 @@ async function boot(){
   if(booted) return; booted=true;
   $('bootOverlay').classList.add('hide');
   getAudioCtx();
+  addLog(`[SYS] Device profile: ${DeviceProfile.tier} tier (${DeviceProfile.cores} cores, ~${DeviceProfile.mem}GB, ${DeviceProfile.mobile?'mobile':'desktop'}) — picking models to match`,'info');
   try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; window.speechSynthesis.speak(u); }catch(e){}
   const h=new Date().getHours(); const g=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
   const remembered = (Memory.history.length||Memory.facts.length) ? ' I have kept our previous conversation in memory.' : '';
@@ -2724,6 +2811,7 @@ async function boot(){
     }
   }
   if(sttEngine==='whisper' || effectiveWakeEngine()==='local') Whisper.ensure().catch(()=>{});
+  if(unpromptedMode) scheduleUnprompted();
   if(aiProvider==='local'){
     if(!('gpu' in navigator)){
       setTimeout(()=>reply('This browser has no WebGPU, sir, so my on-device core cannot run here. Tap the gear icon to link Gemini or Groq instead.'), 2500);
