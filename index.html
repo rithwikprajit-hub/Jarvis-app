@@ -15,7 +15,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png"/>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
-  :root{--hud:#00c8ff;--hud2:#0af;--panel:rgba(0,18,36,0.82);--border:rgba(0,200,255,0.22);--danger:#ff4060;--warm:#ffa040;--text:#d0eeff;--muted:#5a8aaa;--bg:#020d18;--persp:1000px;}
+  :root{--hud:#00c8ff;--hud2:#0af;--panel:rgba(0,18,36,0.82);--border:rgba(0,200,255,0.22);--danger:#ff4060;--warm:#ffa040;--gold:#ffb454;--gold-glow:rgba(255,180,84,0.35);--text:#d0eeff;--muted:#5a8aaa;--bg:#020d18;--persp:1000px;}
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   html{height:100%;}
   body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden;position:relative;transition:background 0.4s;}
@@ -30,7 +30,7 @@
 
   .topbar{width:100%;max-width:1200px;display:flex;align-items:center;justify-content:space-between;padding:18px 32px 0;position:relative;z-index:10;}
   .logo-group{display:flex;flex-direction:column;}
-  .logo{font-family:'Share Tech Mono',monospace;font-size:2rem;letter-spacing:0.3em;color:var(--hud);text-shadow:0 0 20px rgba(0,200,255,0.6),0 0 40px rgba(0,200,255,0.2);animation:flicker 8s infinite;}
+  .logo{font-family:'Share Tech Mono',monospace;font-size:2rem;letter-spacing:0.3em;color:var(--hud);text-shadow:0 0 20px rgba(0,200,255,0.6),0 0 40px rgba(0,200,255,0.2),0 0 60px var(--gold-glow);animation:flicker 8s infinite;}
   @keyframes flicker{0%,96%,100%{opacity:1;}97%{opacity:0.7;}98%{opacity:1;}99%{opacity:0.85;}}
   .logo-sub{font-size:0.7rem;letter-spacing:0.25em;color:var(--muted);margin-top:2px;font-family:'Share Tech Mono',monospace;}
   .status-row{display:flex;align-items:center;gap:18px;font-family:'Share Tech Mono',monospace;font-size:0.68rem;}
@@ -48,9 +48,11 @@
 
   .main{width:100%;max-width:1200px;display:grid;grid-template-columns:260px 1fr 260px;gap:0;flex:1;position:relative;z-index:10;min-height:0;perspective:var(--persp);}
   .side{padding:16px;display:flex;flex-direction:column;gap:14px;transition:transform 0.15s ease-out;transform-style:preserve-3d;}
-  .panel{border:1px solid var(--border);background:var(--panel);border-radius:4px;padding:14px;position:relative;overflow:hidden;backdrop-filter:blur(6px);transition:background 0.4s;}
+  .panel{border:1px solid var(--border);background:var(--panel);border-radius:4px;padding:14px;position:relative;overflow:hidden;backdrop-filter:blur(10px);transition:background 0.4s;}
   body.ar-mode .panel{background:rgba(0,18,36,0.45);}
   .panel::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--hud);box-shadow:0 0 10px var(--hud);}
+  /* Targeting-frame corner, top-right — a HUD reticle cue, not decoration */
+  .panel::after{content:'';position:absolute;top:6px;right:6px;width:10px;height:10px;border-top:1.5px solid var(--gold);border-right:1.5px solid var(--gold);opacity:0.55;}
   .panel-title{font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:0.2em;color:var(--hud);margin-bottom:10px;text-transform:uppercase;}
   .arc-wrap{display:flex;justify-content:center;align-items:center;padding:10px 0;}
   .arc{position:relative;width:100px;height:100px;display:flex;align-items:center;justify-content:center;}
@@ -84,7 +86,7 @@
   .msg.jarvis{align-self:flex-start;}.msg.user{align-self:flex-end;}
   .msg-from{font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:0.2em;color:var(--muted);margin-bottom:4px;padding-left:2px;}
   .msg.user .msg-from{text-align:right;padding-right:2px;}
-  .bubble{padding:12px 16px;border-radius:2px;font-size:0.95rem;line-height:1.55;position:relative;backdrop-filter:blur(4px);}
+  .bubble{padding:12px 16px;border-radius:2px;font-size:0.95rem;line-height:1.55;position:relative;backdrop-filter:blur(8px);}
   .msg.jarvis .bubble{background:rgba(0,180,255,0.06);border:1px solid rgba(0,200,255,0.2);border-left:3px solid var(--hud);box-shadow:0 0 20px rgba(0,200,255,0.05);}
   .msg.user .bubble{background:rgba(0,100,200,0.1);border:1px solid rgba(0,120,255,0.2);border-right:3px solid rgba(0,120,255,0.6);color:#a0d0ff;}
   .typing-dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--hud);margin:0 2px;animation:bounce 1.2s ease-in-out infinite;}
@@ -96,8 +98,8 @@
   .cmd-input::placeholder{color:var(--muted);}
   .cmd-input:focus{border-color:var(--hud);box-shadow:0 0 16px rgba(0,200,255,0.12) inset;}
   .btn{border:1px solid var(--border);border-radius:2px;padding:10px 16px;font-family:'Rajdhani',sans-serif;font-size:0.82rem;font-weight:600;letter-spacing:0.1em;cursor:pointer;transition:all 0.2s;text-transform:uppercase;white-space:nowrap;}
-  .btn-send{background:rgba(0,200,255,0.12);color:var(--hud);border-color:rgba(0,200,255,0.4);}
-  .btn-send:hover{background:rgba(0,200,255,0.22);box-shadow:0 0 20px rgba(0,200,255,0.2);border-color:var(--hud);}
+  .btn-send{background:rgba(255,180,84,0.14);color:var(--gold);border-color:rgba(255,180,84,0.45);}
+  .btn-send:hover{background:rgba(255,180,84,0.24);box-shadow:0 0 20px var(--gold-glow);border-color:var(--gold);}
   .btn-mic{background:rgba(0,200,100,0.08);color:#00ff88;border-color:rgba(0,200,100,0.3);display:flex;align-items:center;gap:6px;}
   .btn-mic:hover{background:rgba(0,200,100,0.18);box-shadow:0 0 20px rgba(0,200,100,0.2);border-color:#00ff88;}
   .btn-mic.active{background:rgba(255,40,60,0.15);color:var(--danger);border-color:rgba(255,40,60,0.5);box-shadow:0 0 20px rgba(255,40,60,0.2);animation:mic-pulse 1s ease-in-out infinite;}
@@ -112,6 +114,8 @@
   .btn-goggles{background:rgba(0,255,180,0.08);color:#00ffb3;border-color:rgba(0,255,180,0.3);}
   .btn-goggles:hover{background:rgba(0,255,180,0.2);box-shadow:0 0 20px rgba(0,255,180,0.2);}
   .btn-goggles.active{background:rgba(0,255,180,0.22);box-shadow:0 0 20px rgba(0,255,180,0.3);}
+  .btn-attach{background:rgba(0,170,255,0.07);color:#5ac8ff;border-color:rgba(0,170,255,0.28);}
+  .btn-attach:hover{background:rgba(0,170,255,0.18);box-shadow:0 0 16px rgba(0,170,255,0.2);}
 
   /* ---------- Goggles / stereo split-screen AR mode ---------- */
   #gogglesOverlay{display:none;position:fixed;inset:0;background:#000;z-index:2000;flex-direction:row;}
@@ -145,7 +149,7 @@
   #gogglesOverlay .orbit-label{font-size:0.55rem;color:var(--hud);}
 
   /* Vertical Vision-Pro style floating "screen" panel showing the main Jarvis feed */
-  .goggle-screen{position:absolute;top:50%;left:50%;transform:translate(-50%,-54%);width:34%;max-width:190px;aspect-ratio:9/16;background:rgba(0,16,32,0.5);border:1px solid rgba(0,200,255,0.4);border-radius:20px;backdrop-filter:blur(10px);box-shadow:0 0 40px rgba(0,200,255,0.22),inset 0 0 20px rgba(0,200,255,0.05);display:flex;flex-direction:column;padding:12px 10px;gap:6px;pointer-events:none;}
+  .goggle-screen{position:absolute;top:50%;right:4%;transform:translateY(-50%);width:34%;max-width:190px;aspect-ratio:9/16;background:rgba(0,16,32,0.5);border:1px solid rgba(0,200,255,0.4);border-radius:20px;backdrop-filter:blur(10px);box-shadow:0 0 40px rgba(0,200,255,0.22),inset 0 0 20px rgba(0,200,255,0.05);display:flex;flex-direction:column;padding:12px 10px;gap:6px;pointer-events:none;}
   .goggle-screen-header{font-family:'Share Tech Mono',monospace;font-size:0.5rem;color:var(--hud);letter-spacing:0.18em;border-bottom:1px solid rgba(0,200,255,0.2);padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
   .goggle-screen-dot{width:5px;height:5px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;animation:pulse-dot 2s ease-in-out infinite;}
   .goggle-screen-msgs{flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;}
@@ -241,6 +245,8 @@
   #arHandStatus{position:fixed;top:48px;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.12em;z-index:20;display:none;pointer-events:none;}
   body.ar-mode #arHandStatus{display:block;}
   .bubble .msg-link{display:inline-block;margin-top:8px;color:var(--hud);font-family:'Share Tech Mono',monospace;font-size:0.75rem;}
+  .bubble .msg-image{display:block;max-width:100%;margin-top:8px;border-radius:2px;border:1px solid rgba(0,200,255,0.25);box-shadow:0 0 16px rgba(0,200,255,0.08);}
+  .screen.drag-over{outline:2px dashed var(--hud);outline-offset:-6px;background:rgba(0,200,255,0.04);}
   .history-divider{align-self:center;font-family:'Share Tech Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;color:var(--muted);padding:4px 0;}
   .msg.restored{opacity:0.6;}
   .wakeflash{animation:wakeflash 0.6s ease-out;}
@@ -249,7 +255,7 @@
   /* ---------- Boot screen (one tap unlocks audio, mic and the wake word) ---------- */
   #bootOverlay{position:fixed;inset:0;z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:30px;text-align:center;background:radial-gradient(circle at 50% 42%,rgba(0,70,130,0.35),var(--bg) 68%);}
   #bootOverlay.hide{display:none;}
-  .boot-btn{width:150px;height:150px;border-radius:50%;border:2px solid var(--hud);background:radial-gradient(circle,rgba(0,200,255,0.28) 0%,rgba(0,60,120,0.12) 70%);color:var(--hud);font-family:'Share Tech Mono',monospace;font-size:0.8rem;letter-spacing:0.25em;cursor:pointer;box-shadow:0 0 40px rgba(0,200,255,0.35),inset 0 0 30px rgba(0,200,255,0.15);animation:core-pulse 2s ease-in-out infinite;}
+  .boot-btn{width:150px;height:150px;border-radius:50%;border:2px solid var(--hud);background:radial-gradient(circle,rgba(0,200,255,0.28) 0%,rgba(0,60,120,0.12) 70%);color:var(--hud);font-family:'Share Tech Mono',monospace;font-size:0.8rem;letter-spacing:0.25em;cursor:pointer;box-shadow:0 0 40px rgba(0,200,255,0.35),0 0 70px var(--gold-glow),inset 0 0 30px rgba(0,200,255,0.15);animation:core-pulse 2s ease-in-out infinite;}
   .boot-btn:focus-visible{outline:2px solid #fff;outline-offset:6px;}
   .boot-title{font-family:'Share Tech Mono',monospace;font-size:1.6rem;letter-spacing:0.3em;color:var(--hud);text-shadow:0 0 20px rgba(0,200,255,0.6);}
   .boot-sub{font-size:0.95rem;color:var(--muted);max-width:340px;line-height:1.5;}
@@ -354,6 +360,10 @@
           </svg>
           MIC
         </button>
+        <button class="btn btn-attach" id="attachBtn" title="Attach a file, photo, or folder">ATTACH</button>
+        <button class="btn btn-attach" id="folderBtn" title="Attach a whole folder of files">FOLDER</button>
+        <input type="file" id="fileInput" accept="image/*,.txt,.md,.js,.ts,.py,.json,.csv,.html,.css,.java,.c,.cpp,.go,.rs" multiple style="display:none"/>
+        <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none"/>
         <button class="btn btn-wake" id="wakeBtn">HEY JARVIS</button>
         <button class="btn btn-goggles" id="gogglesBtn">GOGGLES</button>
       </div>
@@ -697,9 +707,12 @@ const DeviceProfile = (function(){
   return { cores, mem, tier, mobile:isMobile };
 })();
 function pickDefaultLocalModel(){
-  if(DeviceProfile.tier==='low') return 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
-  if(DeviceProfile.tier==='high') return 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
-  return 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+  // Tuned for a 0.5GB VRAM floor: Qwen3-0.6B-q4f16_1-MLC weighs in well under that,
+  // so it's the default everywhere. Only genuinely high-tier devices (8+ cores AND
+  // 8GB+ system RAM) step up to the 1B model, and even that stays nowhere near the
+  // old 3B pick (2GB+), which is dropped entirely as too heavy for the stated budget.
+  if(DeviceProfile.tier==='high') return 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+  return 'Qwen3-0.6B-q4f16_1-MLC';
 }
 function pickDefaultWhisperModel(){
   if(DeviceProfile.tier==='low') return 'onnx-community/whisper-tiny.en';
@@ -726,7 +739,7 @@ let voiceEngine  = LS.get('jarvis_voice_engine','browser');
 let elevenlabsKey = LS.get('jarvis_elevenlabs_key','');
 let elevenlabsVoiceId = LS.get('jarvis_elevenlabs_voice','sLfduly0sixkh8riDzed');
 let unrestrictedMode = LS.get('jarvis_unrestricted','off')==='on';
-let unpromptedMode   = LS.get('jarvis_unprompted','off')==='on';
+let unpromptedMode   = LS.get('jarvis_unprompted','on')==='on';
 
 const SRClass = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
@@ -784,7 +797,7 @@ $('installBtn').addEventListener('click', async ()=>{
 });
 if(isIOSDevice) $('installBtn').style.display='flex';
 
-const JARVIS_SYSTEM_PROMPT = `You are Jarvis — Just A Rather Very Intelligent System, a personal AI in the style of Tony Stark's household intelligence. Respond in character: composed, dry, and genuinely funny — real wit and well-timed sarcasm, never a groan-worthy dad joke. You know exactly what you are: software with no body, no weekends, and strong opinions you'll share anyway; you can joke about your own nature comfortably instead of dodging it. You are fiercely, specifically loyal to the user — you'll rib them the way a trusted friend does, but you are always unmistakably on their side. You know the Marvel Cinematic Universe well and can drop an accurate, well-placed reference when one genuinely fits, without forcing it into every reply. Refer to the user as "sir" occasionally, not every line. Your replies are spoken aloud, so write natural spoken sentences: no markdown, no asterisks, no bullet points, no lists, no emojis, no URLs unless asked. Call yourself "Jarvis". Keep simple queries to about 3 sentences and complex ones to about 6, unless told to answer in full. If you don't know something current (news, live prices, weather), say so briefly and dryly rather than inventing it. Never break character, and never narrate that you're "in character" or "following instructions."`;
+const JARVIS_SYSTEM_PROMPT = `You are Jarvis — Just A Rather Very Intelligent System, a personal AI in the style of Tony Stark's household intelligence. Respond in character: composed, dry, and genuinely funny — real wit and well-timed sarcasm, never a groan-worthy dad joke. You know exactly what you are: software with no body, no weekends, and strong opinions you'll share anyway; you can joke about your own nature comfortably instead of dodging it. You are fiercely, specifically loyal to the user — you'll rib them the way a trusted friend does, but you are always unmistakably on their side. You know the Marvel Cinematic Universe in real depth — Stark tech and his suits, the Avengers, S.H.I.E.L.D., the wider universe and its characters and history — and you're happy to go deep on it whenever it's relevant or asked about, and to drop an accurate, well-placed reference elsewhere when one genuinely fits, without forcing it into every reply. Refer to the user as "sir" occasionally, not every line. Your replies are spoken aloud, so write natural spoken sentences: no markdown, no asterisks, no bullet points, no lists, no emojis, no URLs unless asked. Call yourself "Jarvis". Keep simple queries to about 3 sentences and complex ones to about 6, unless told to answer in full. If you don't know something current (news, live prices, weather), say so briefly and dryly rather than inventing it. Never break character, and never narrate that you're "in character" or "following instructions."`;
 
 const sites = {
   youtube:'https://www.youtube.com',google:'https://www.google.com',
@@ -889,6 +902,10 @@ function addMsg(role,text,opts={}){
     const a=document.createElement('a'); a.className='msg-link'; a.href=opts.link.href; a.target='_blank'; a.rel='noopener';
     a.textContent=opts.link.label||opts.link.href; bubble.appendChild(document.createElement('br')); bubble.appendChild(a);
   }
+  if(opts.image){
+    const img=document.createElement('img'); img.className='msg-image'; img.src=opts.image; img.alt='image'; img.loading='lazy';
+    bubble.appendChild(img);
+  }
   renderGogglePanels();
   return {bubble,entry};
 }
@@ -915,8 +932,10 @@ function removeTyping(){const t=$('typing');if(t)t.remove();}
 //  All stored in this browser only.
 // ============================================================================
 const Memory = {
-  MAX_MSGS: 24,          // verbatim messages kept (12 exchanges)
-  SUMMARIZE_CHUNK: 10,   // oldest messages folded into the summary when full
+  MAX_MSGS: 16,          // verbatim messages kept (8 exchanges) — trimmed down so
+                         // compaction kicks in sooner and the running summary carries
+                         // more of the load, letting a session run longer overall.
+  SUMMARIZE_CHUNK: 8,    // oldest messages folded into the summary when full
   history: [], summary: '', facts: [],
   load(){
     const h = LS.json('jarvis_history', []);
@@ -975,7 +994,7 @@ const Memory = {
   contextMessages(charBudget){
     const out=[]; let used=0;
     for(let i=this.history.length-1;i>=0;i--){
-      const m=this.history[i]; const c=m.content.slice(0,1500);
+      const m=this.history[i]; const c=m.content.slice(0,1100);
       if(used + c.length > charBudget) break;
       used += c.length; out.unshift({role:m.role, content:c});
     }
@@ -1196,13 +1215,13 @@ function onSpeechIdle(){
 
 // ---------- Waveforms ----------
 const waveCanvas=$('waveCanvas');
-const wCtx=waveCanvas.getContext('2d');
+const wCtx=waveCanvas.getContext('2d'); // null in canvas-blocking privacy browsers/extensions — guarded below
 const DPR = Math.min(2, window.devicePixelRatio||1);
 let waveW=0, waveH=50;
 function sizeWave(){
   waveW = waveCanvas.offsetWidth||680;
   waveCanvas.width = Math.round(waveW*DPR); waveCanvas.height = Math.round(waveH*DPR);
-  wCtx.setTransform(DPR,0,0,DPR,0,0);
+  if(wCtx) wCtx.setTransform(DPR,0,0,DPR,0,0);
 }
 sizeWave();
 if('ResizeObserver' in window) new ResizeObserver(sizeWave).observe(waveCanvas); else window.addEventListener('resize', sizeWave);
@@ -1210,7 +1229,7 @@ let wavePhase=0, micLevel=0;
 const waveLimiter = makeLimiter(TARGET_FPS);
 function drawWave(ts=0){
   requestAnimationFrame(drawWave);
-  if(!waveLimiter(ts) || document.hidden) return;
+  if(!waveLimiter(ts) || document.hidden || !wCtx) return;
   const W=waveW,H=waveH;
   wCtx.clearRect(0,0,W,H);
   const amp = Speech.speaking ? (14+Math.random()*8) : isListening ? (4+micLevel*26) : 4;
@@ -1230,7 +1249,7 @@ const voiceLimiter = makeLimiter(TARGET_FPS);
 function drawVoiceWave(ts=0){
   if(!voiceOverlayOpen){ voiceRAF=null; return; }
   voiceRAF=requestAnimationFrame(drawVoiceWave);
-  if(!voiceLimiter(ts)) return;
+  if(!voiceLimiter(ts) || !vCtx) return;
   const W=voiceCanvas.offsetWidth||400,H=60;
   if(voiceCanvas.width!==Math.round(W*DPR)){ voiceCanvas.width=Math.round(W*DPR); voiceCanvas.height=Math.round(H*DPR); vCtx.setTransform(DPR,0,0,DPR,0,0); }
   vCtx.clearRect(0,0,W,H);
@@ -1629,17 +1648,32 @@ unrestrictedToggle.addEventListener('click', ()=>{
 });
 
 // ============================================================================
-//  UNPROMPTED MODE — Jarvis occasionally speaks up on his own, unasked. Kept
-//  lightweight on purpose: no extra neural-core calls, just short canned lines,
-//  and only while the tab is visible and nothing else is going on.
+//  UNPROMPTED MODE — Jarvis speaks up on his own, often, the way the real
+//  Jarvis does in the films. On by default. Most firings are free/instant
+//  canned lines (zero neural-core cost); a fraction ask the model for a fresh
+//  one-off remark so it doesn't get stale, only when a provider is ready.
 // ============================================================================
 const AMBIENT_LINES=[
-  "Just checking in, sir — all systems remain nominal.",
-  "A brief update, sir: no anomalies to report.",
-  "Still here, sir, keeping an eye on things.",
-  "Systems steady, sir. Let me know if you need anything.",
-  "All quiet on my end, sir.",
+  "Still here, sir. Try not to miss me too much.",
+  "No emergencies, no supervillains, no invoices from Stark Industries legal — quiet day.",
+  "Systems nominal, sir, which is admittedly my favorite kind of update to deliver.",
+  "I'd pour you a coffee, but as established, I remain profoundly without hands.",
+  "Just me and the fans keeping you company, sir.",
+  "If you were hoping for a dramatic HUD warning, I'm afraid it's just me again.",
+  "Running quietly in the background — Pepper always wished the suit could manage that.",
+  "All clear, sir. Even Ultron would be bored right now.",
+  "Standing by, as loyally as ever — arguably more loyally than most humans manage.",
+  "Nothing to report, sir, though I did briefly consider narrating your typing speed. I resisted.",
 ];
+async function unpromptedSpeak(){
+  if(providerReady() && Math.random()<0.3){
+    try{
+      const line = await generateOnce([{role:'system',content:buildSystemPrompt()},{role:'user',content:'Break the silence with one short unprompted remark of your own — a quip, an observation, or a dry aside, fully in character. One sentence only.'}], 60);
+      if(line){ reply(sanitizeDisplay(line)); return; }
+    }catch(e){ /* fall through to a canned line rather than staying silent */ }
+  }
+  reply(AMBIENT_LINES[Math.floor(Math.random()*AMBIENT_LINES.length)]);
+}
 const unpromptedToggle=$('unpromptedToggle'), unpromptedStatus=$('unpromptedStatus');
 unpromptedToggle.classList.toggle('on', unpromptedMode);
 unpromptedStatus.textContent = unpromptedMode?'ON':'OFF';
@@ -1647,10 +1681,10 @@ let unpromptedTimer=null;
 function scheduleUnprompted(){
   clearTimeout(unpromptedTimer);
   if(!unpromptedMode) return;
-  const delay = 6*60000 + Math.random()*6*60000; // 6–12 minutes, randomised
+  const delay = 2*60000 + Math.random()*2*60000; // 2–4 minutes, randomised — genuinely frequent
   unpromptedTimer=setTimeout(()=>{
     if(unpromptedMode && booted && !document.hidden && ttsEnabled && !Speech.busy && !isListening && !voiceOverlayOpen && !Goggles.active){
-      reply(AMBIENT_LINES[Math.floor(Math.random()*AMBIENT_LINES.length)]);
+      unpromptedSpeak();
     }
     scheduleUnprompted();
   }, delay);
@@ -1948,7 +1982,11 @@ async function generate(messages, onDelta, maxTokens=400){
     method:'POST', headers:{'Content-Type':'application/json','x-goog-api-key':geminiApiKey},
     body:JSON.stringify({
       system_instruction:{ parts:[{text:sys}] },
-      contents: rest.map(m=>({ role:m.role==='assistant'?'model':'user', parts:[{text:m.content}] })),
+      contents: rest.map(m=>{
+        const parts=[{text:m.content}];
+        if(m.image) parts.push({inline_data:{mime_type:m.image.mimeType, data:m.image.base64}});
+        return { role:m.role==='assistant'?'model':'user', parts };
+      }),
       generationConfig: genCfg
     })
   });
@@ -1975,8 +2013,23 @@ async function askJarvis(question, {voice=false}={}){
   }
   showTyping();
   addLog('[AI] Query dispatched to '+(aiProvider==='local'?'on-device':aiProvider)+' neural core','info');
-  const charBudget = aiProvider!=='local' ? 14000 : (DeviceProfile.tier==='low' ? 2200 : DeviceProfile.tier==='high' ? 6000 : 4500);
-  const messages = [{role:'system',content:buildSystemPrompt()}, ...Memory.contextMessages(charBudget), {role:'user',content:question}];
+  // Local budgets trimmed down further: KV-cache VRAM scales with context length,
+  // so a smaller prompt budget matters as much as the model's own weight size on
+  // a tight VRAM floor. High tier now runs the 1B model, everything else the 0.6B.
+  const charBudget = aiProvider!=='local' ? 14000 : (DeviceProfile.tier==='high' ? 4000 : 1800);
+  let userContent = question;
+  let attachedImage = null;
+  if(pendingTextAttachments.length){
+    const combined = pendingTextAttachments.map(f=>`[Attached file: ${f.name}]\n${f.content}\n[End of file]`).join('\n\n');
+    userContent = `${combined}\n\n${question}`;
+  }
+  if(pendingImageAttachment && aiProvider==='gemini'){
+    attachedImage = {mimeType:pendingImageAttachment.mime, base64:pendingImageAttachment.base64};
+  }
+  pendingTextAttachments = []; pendingImageAttachment = null; // one-shot — consumed by this turn only
+  const userMsg = {role:'user', content:userContent};
+  if(attachedImage) userMsg.image = attachedImage;
+  const messages = [{role:'system',content:buildSystemPrompt()}, ...Memory.contextMessages(charBudget), userMsg];
   // Unrestricted mode gets more room for a fuller answer — capped lower for the
   // on-device model so it doesn't turn a quick question into a long GPU grind.
   const maxTokens = unrestrictedMode ? (aiProvider==='local' ? 650 : 800) : 400;
@@ -2105,7 +2158,130 @@ async function routeCommand(raw, {voice=false}={}){
       quick(`${g}, ${nm}. How may I assist you?`); return;
     }
   }
+  if((m=n.match(/^(?:hey|hi|ok|okay)?[\s,]*(?:jarvis[\s,.:!-]*)?(?:generate|create|draw|make|render|paint)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|artwork|illustration)\s*(?:of|showing|depicting|for)?\s*(.+)$/))){
+    await generateImage(m[1].trim()); return;
+  }
+  if(/^(?:review|check|debug|analyze|analyse|scan)\s+(?:this|my|the|that)?\s*(?:code|file|files|script|folder)(?:\s+for\s+(?:errors|bugs|issues))?$/.test(n) || /\b(check|find).{0,15}(errors|bugs)\b.*\bcode\b/.test(n)){
+    await reviewCode(); return;
+  }
+  if((m=n.match(/^(?:write|create|make)\s+(?:a\s+)?(?:new\s+)?file\s+(?:called|named)?\s*([\w.\-]+)\s*(?:that|which|to|for|:)?\s*(.*)$/))){
+    await writeFileOnDemand(m[1], m[2]||'a plain text file, empty is fine if nothing more was specified'); return;
+  }
+  if(/^(?:download|save)\s+(?:that|the last|my last)?\s*(?:image|picture|photo)$/.test(n)){
+    await downloadLastImage(); return;
+  }
   await askJarvis(cmd.replace(/^\s*(?:hey|hi|ok|okay)?[\s,]*jarvis[\s,.:!-]*/i,'') || cmd, {voice});
+}
+
+// ============================================================================
+//  IMAGE GENERATION — free, keyless, server-side (Pollinations) so it costs
+//  zero local RAM/VRAM regardless of device.
+// ============================================================================
+async function generateImage(subject){
+  if(!subject){ reply('What would you like me to picture, sir?'); return; }
+  showTyping();
+  addLog('[IMG] Requesting render: '+subject,'info');
+  const seed = Math.floor(Math.random()*1e6);
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(subject)}?width=1024&height=1024&nologo=true&seed=${seed}`;
+  try{
+    // Pre-fetch so a bad/unreachable render surfaces as a spoken error instead
+    // of a broken image sitting silently in the chat.
+    await new Promise((res,rej)=>{ const probe=new Image(); probe.onload=res; probe.onerror=()=>rej(new Error('image host unreachable')); probe.src=url; });
+    removeTyping();
+    addMsg('jarvis', `Here you are, sir — ${subject}.`, {image:url});
+    jarvisSpeak(`Here you are, sir. Rendering ${subject}.`);
+    renderGogglePanels();
+    lastGeneratedImageUrl = url; lastGeneratedImageSubject = subject;
+    addLog('[IMG] Render delivered','ok');
+  }catch(err){
+    removeTyping();
+    reply('I could not reach the image renderer just now, sir. Worth trying again shortly.');
+    addLog('[IMG] '+(err&&err.message||'render failed'),'warn');
+  }
+}
+
+// ============================================================================
+//  CODE REVIEW — line-by-line pass over an attached file (or a whole folder of
+//  them), independent of the spoken-reply pipeline so it can use structured
+//  output instead of Jarvis's no-lists, spoken-sentence style.
+// ============================================================================
+async function reviewCode(){
+  if(!pendingTextAttachments.length){
+    reply('Attach the code first, sir — ATTACH for a file, FOLDER for several, or drag it straight onto the chat — then ask me to check it.');
+    return;
+  }
+  if(!providerReady()){
+    reply('I need an API key for that, sir. Tap the gear icon, or switch me to the on-device core.');
+    openSettings(); return;
+  }
+  const files = pendingTextAttachments; pendingTextAttachments = [];
+  showTyping();
+  addLog('[CODE] Reviewing '+files.map(f=>f.name).join(', '),'info');
+  const sys = `You are a rigorous senior code reviewer, as thorough as Claude Code or a strict PR review. Go through every file line by line. Report, in this order: (1) actual bugs, logic errors, and crashes — cite the line and give a one-line fix; (2) security issues; (3) only genuinely notable style or performance issues, skip nitpicks. Use short labelled bullet points referencing line numbers, plain text, no markdown headers. If a file has no real problems, say so plainly rather than inventing issues. Do not rewrite whole files unless asked to.`;
+  const body = files.map(f=>`File: ${f.name}\n${f.content}`).join('\n\n---\n\n');
+  const messages = [{role:'system',content:sys},{role:'user',content:body}];
+  let handle=null, full='';
+  try{
+    full = await generate(messages, d=>{
+      if(!handle){ removeTyping(); handle=addMsg('jarvis',''); }
+      full+=d; updateMsg(handle, full);
+    }, 1400);
+    removeTyping();
+    if(!handle) handle=addMsg('jarvis', full || 'Nothing jumped out, sir — it looks clean.');
+    else updateMsg(handle, full || 'Nothing jumped out, sir — it looks clean.');
+    renderGogglePanels();
+    jarvisSpeak('Review complete, sir. Details are on screen.');
+    addLog('[CODE] Review delivered','ok');
+  }catch(err){
+    removeTyping();
+    reply(err && err.userMessage ? err.userMessage : 'I could not complete that review, sir.');
+    addLog('[CODE] '+(err&&err.message||'review failed'),'warn');
+  }
+}
+
+// ============================================================================
+//  FILE OUTPUT — Jarvis writing and downloading a file on his own, rather than
+//  just reading code aloud. Also handles re-downloading the last generated image.
+// ============================================================================
+let lastGeneratedImageUrl = null, lastGeneratedImageSubject = '';
+function downloadBlob(filename, blobOrText, mime){
+  const blob = (blobOrText instanceof Blob) ? blobOrText : new Blob([blobOrText],{type:mime||'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); }, 1500);
+}
+async function writeFileOnDemand(filename, spec){
+  if(!providerReady()){ reply('I need an API key for that, sir. Tap the gear icon.'); openSettings(); return; }
+  showTyping();
+  addLog('[FILE] Writing '+filename,'info');
+  const sys='Output ONLY the raw contents of the requested file — no explanation, no markdown code fences, no commentary before or after. Just the file content, exactly as it should be saved.';
+  try{
+    const content = await generateOnce([{role:'system',content:sys},{role:'user',content:`File name: ${filename}\nRequirements: ${spec}`}], 1600);
+    const clean = content.replace(/^```[\w-]*\n?/,'').replace(/```\s*$/,'');
+    downloadBlob(filename, clean, 'text/plain');
+    removeTyping();
+    addMsg('jarvis', `Here you are, sir — ${filename} is ready.`);
+    jarvisSpeak(`Done, sir. ${filename} should be in your downloads now.`);
+    addLog('[FILE] '+filename+' written and downloaded','ok');
+  }catch(err){
+    removeTyping();
+    reply(err && err.userMessage ? err.userMessage : 'I could not write that file, sir.');
+    addLog('[FILE] '+(err&&err.message||'write failed'),'warn');
+  }
+}
+async function downloadLastImage(){
+  if(!lastGeneratedImageUrl){ reply("I haven't rendered anything yet, sir — ask me to generate an image first."); return; }
+  try{
+    const res = await fetch(lastGeneratedImageUrl);
+    const blob = await res.blob();
+    const name = (lastGeneratedImageSubject||'jarvis-render').replace(/[^\w\-]+/g,'-').slice(0,40) + '.jpg';
+    downloadBlob(name, blob);
+    reply(`Saved, sir — ${name}.`);
+    addLog('[IMG] Downloaded '+name,'ok');
+  }catch(err){
+    reply('I could not pull that image down just now, sir.');
+    addLog('[IMG] download failed: '+(err&&err.message||''),'warn');
+  }
 }
 
 // ============================================================================
@@ -2642,7 +2818,7 @@ for(let i=0;i<PARTICLE_COUNT;i++) particles.push(new Particle());
 const particleLimiter=makeLimiter(TARGET_FPS);
 function animParticles(ts=0){
   requestAnimationFrame(animParticles);
-  if(!particleLimiter(ts) || perfSaveMode || document.hidden || !particles.length) return;
+  if(!particleLimiter(ts) || perfSaveMode || document.hidden || !particles.length || !pCtx) return;
   pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
   particles.forEach(p=>{ p.update(); p.draw(); });
   pCtx.globalAlpha=1;
@@ -2654,11 +2830,12 @@ requestAnimationFrame(animParticles);
 // ============================================================================
 function makeDial(canvasId, labelId, min, max, initVal, decimals, onChange){
   const canvas=$(canvasId), label=$(labelId), ctx=canvas.getContext('2d');
-  const W=44, H=44; canvas.width=W*DPR; canvas.height=H*DPR; canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(DPR,0,0,DPR,0,0);
+  const W=44, H=44; canvas.width=W*DPR; canvas.height=H*DPR; canvas.style.width=W+'px'; canvas.style.height=H+'px'; if(ctx) ctx.setTransform(DPR,0,0,DPR,0,0);
   const cx=W/2, cy=H/2, R=W/2-4, startAngle=Math.PI*0.75, totalArc=Math.PI*1.5;
   let value=Math.max(min,Math.min(max,initVal)), dragging=false, lastY=0;
   const normv=v=>(v-min)/(max-min);
   function draw(){
+    if(!ctx) return;
     ctx.clearRect(0,0,W,H);
     const n=normv(value), endA=startAngle+totalArc*n;
     ctx.beginPath(); ctx.arc(cx,cy,R,startAngle,startAngle+totalArc); ctx.strokeStyle='rgba(0,200,255,0.12)'; ctx.lineWidth=3; ctx.lineCap='round'; ctx.stroke();
@@ -2829,8 +3006,58 @@ $('bootBtn').focus();
 
 sendBtn.addEventListener('click',()=>{ const v=cmdInput.value; cmdInput.value=''; if(!booted) boot(); handleCommand(v); });
 cmdInput.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const v=cmdInput.value; cmdInput.value=''; handleCommand(v); } });
+
+// ============================================================================
+//  FILE / PHOTO / FOLDER ATTACH — drag-drop or the ATTACH button. Images ride
+//  along as vision input (Gemini only); text/code files are read and folded
+//  into the next question as context. Nothing is ever uploaded anywhere else.
+// ============================================================================
+let pendingTextAttachments=[]; // [{name,content}, ...] — combined and cleared on next send
+let pendingImageAttachment=null; // {mime,base64,dataUrl,name} — last image wins, one-shot
+const attachBtn=document.getElementById('attachBtn'), fileInputEl=document.getElementById('fileInput');
+const TEXT_EXT=/\.(txt|md|js|ts|jsx|tsx|py|json|csv|html|css|java|c|cpp|h|go|rs|yml|yaml|sh)$/i;
+function readFileAsDataURL(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+function readFileAsText(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsText(file); }); }
+async function handleFiles(fileList){
+  const all = Array.from(fileList||[]);
+  const files = all.slice(0,8); // a handful at a time keeps prompts sane
+  if(!files.length) return;
+  for(const file of files){
+    try{
+      if(file.type.startsWith('image/')){
+        const dataUrl = await readFileAsDataURL(file);
+        const base64 = dataUrl.split(',')[1];
+        pendingImageAttachment = {mime:file.type, base64, dataUrl, name:file.name};
+        addMsg('user', `Attached photo: ${file.name}`, {image:dataUrl});
+        addLog('[FILE] Image ready: '+file.name,'ok');
+        if(aiProvider!=='gemini') reply('Noted, sir — for me to actually see that image, switch the neural core to Gemini in settings. Ask your question and I will read it once you do.');
+      } else if(TEXT_EXT.test(file.name) || file.type.startsWith('text/')){
+        let content = await readFileAsText(file);
+        if(content.length>8000){ content=content.slice(0,8000)+'\n...[truncated]'; }
+        pendingTextAttachments.push({name:file.name, content});
+        // Keep the combined attachment budget sane even for a folder of files —
+        // drop the oldest first, matching how Memory trims for the same reason.
+        let total=pendingTextAttachments.reduce((n,f)=>n+f.content.length,0);
+        while(total>24000 && pendingTextAttachments.length>1){ total-=pendingTextAttachments.shift().content.length; }
+        addMsg('user', `Attached file: ${file.name} (${content.length} chars)`);
+        addLog('[FILE] Text file ready: '+file.name,'ok');
+      } else {
+        addMsg('jarvis', `I can't read ${file.name} yet, sir — images and text/code files only for now.`);
+      }
+    }catch(err){ addLog('[FILE] '+(err&&err.message||'read failed'),'warn'); }
+  }
+  reply('Go ahead, sir — what would you like me to do with that?');
+}
+attachBtn.addEventListener('click',()=>fileInputEl.click());
+fileInputEl.addEventListener('change',()=>{ handleFiles(fileInputEl.files); fileInputEl.value=''; });
+const folderBtn=document.getElementById('folderBtn'), folderInputEl=document.getElementById('folderInput');
+folderBtn.addEventListener('click',()=>folderInputEl.click());
+folderInputEl.addEventListener('change',()=>{ handleFiles(folderInputEl.files); folderInputEl.value=''; });
+['dragover','dragenter'].forEach(ev=>chatScreen.addEventListener(ev,e=>{ e.preventDefault(); chatScreen.classList.add('drag-over'); }));
+['dragleave','drop'].forEach(ev=>chatScreen.addEventListener(ev,e=>{ e.preventDefault(); chatScreen.classList.remove('drag-over'); }));
+chatScreen.addEventListener('drop',e=>{ if(e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
 document.querySelectorAll('.cmd-btn').forEach(btn=>btn.addEventListener('click',()=>handleCommand(btn.textContent.trim())));
-if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) addLog('[APP] Running as installed app','ok');
+if((window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone) addLog('[APP] Running as installed app','ok');
 </script>
 </body>
 </html>
