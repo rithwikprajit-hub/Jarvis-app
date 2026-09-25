@@ -240,6 +240,22 @@
   .settings-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
 
   #arHint{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:rgba(0,20,40,0.7);border:1px solid var(--border);border-radius:20px;padding:6px 16px;font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--hud);letter-spacing:0.1em;z-index:20;display:none;backdrop-filter:blur(6px);}
+  /* LOW GRAPHICS MODE — backdrop-filter is one of the most GPU/memory-expensive
+     CSS effects on mobile, and this app stacks it across many elements at once
+     (every orbit icon carries its own blur layer, doubled in stereo goggles
+     mode). Dropping it here, with flatter opaque backgrounds instead, is the
+     single biggest lever against graphics-memory crashes on phones. */
+  body.low-gfx .panel,body.low-gfx .bubble,body.low-gfx .input-zone,body.low-gfx .goggle-screen,
+  body.low-gfx .orbit-icon-inner,body.low-gfx #voiceOverlay,body.low-gfx .settings-box,body.low-gfx #arHint{
+    backdrop-filter:none;
+  }
+  body.low-gfx .panel{background:rgba(0,14,28,0.94);}
+  body.low-gfx .msg.jarvis .bubble{background:rgba(0,20,42,0.55);}
+  body.low-gfx .msg.user .bubble{background:rgba(0,18,40,0.6);}
+  body.low-gfx .input-zone{background:rgba(0,8,20,0.9);}
+  body.low-gfx .goggle-screen{background:rgba(0,12,24,0.9);}
+  body.low-gfx .orbit-icon-inner{background:rgba(0,16,32,0.88);}
+  body.low-gfx .settings-box{background:rgba(0,14,28,0.97);}
   #arHint.show{display:block;}
   body.ar-mode #orbitLayer{z-index:15;}
   #arHandStatus{position:fixed;top:48px;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.12em;z-index:20;display:none;pointer-events:none;}
@@ -511,6 +527,7 @@
       <div class="settings-field">
         <label class="settings-label">ON-DEVICE MODEL</label>
         <select class="settings-input" id="localModelSelect">
+          <option value="Qwen3-0.6B-q4f16_1-MLC">Qwen 3 0.6B (leanest, ~0.5GB — recommended for phones)</option>
           <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B (fastest, ~0.9GB)</option>
           <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">Qwen 2.5 1.5B (balanced, ~1.3GB)</option>
           <option value="Qwen3.5-2B-q4f16_1-MLC">Qwen 3.5 2B (newest, ~1.6GB)</option>
@@ -520,6 +537,15 @@
       </div>
       <div class="settings-note" style="margin:6px 0 0;">Runs entirely on your phone or laptop's own chip via WebGPU — nothing leaves the device. The model downloads once and is cached for offline use. Needs a browser with WebGPU (recent Chrome/Edge; on iPhone, Safari 18+).</div>
     </div>
+    <div class="settings-field">
+      <label class="settings-label">LOW GRAPHICS MODE</label>
+      <select class="settings-input" id="lowGfxSelect">
+        <option value="auto">Automatic (on for phones, off for desktop)</option>
+        <option value="on">Always on (safest on weak GPUs)</option>
+        <option value="off">Always off (full visual fidelity)</option>
+      </select>
+    </div>
+    <div class="settings-note" style="margin:0 0 6px;">Drops background blur and floating particles, caps hand-tracking to the CPU instead of the GPU, and shrinks generated images. Fixes crashes on phones with weak graphics memory. Changing this reloads the page.</div>
     <div id="geminiFields" style="display:none;">
       <div class="settings-field">
         <label class="settings-label">GEMINI API KEY</label>
@@ -706,6 +732,14 @@ const DeviceProfile = (function(){
   else if(cores>=8 && mem>=8) tier='high';
   return { cores, mem, tier, mobile:isMobile };
 })();
+// GPU memory can't be detected from JS at all — cores/RAM say nothing about it,
+// which is exactly how a phone with "fine" CPU/RAM numbers still runs out of
+// graphics memory on backdrop-filter blur + multiple canvases + the AR camera
+// feed. Default conservatively on every phone rather than trusting DeviceProfile
+// for this; the LOW GRAPHICS MODE setting (in Jarvis Configuration) overrides it.
+let lowGfxPref = LS.get('jarvis_lowgfx','auto'); // 'auto' | 'on' | 'off'
+let lowGraphics = lowGfxPref==='on' || (lowGfxPref==='auto' && DeviceProfile.mobile);
+document.body.classList.toggle('low-gfx', lowGraphics);
 function pickDefaultLocalModel(){
   // Tuned for a 0.5GB VRAM floor: Qwen3-0.6B-q4f16_1-MLC weighs in well under that,
   // so it's the default everywhere. Only genuinely high-tier devices (8+ cores AND
@@ -719,6 +753,23 @@ function pickDefaultWhisperModel(){
   if(DeviceProfile.tier==='high') return 'onnx-community/whisper-small.en';
   return 'onnx-community/whisper-base.en';
 }
+// On a low-tier chip (octa-core-but-~4GB-RAM phones like a Snapdragon 680 report),
+// running Whisper — even the tiny model — through the WASM CPU fallback (no WebGPU
+// on that class of GPU) costs far more battery/latency per voice command than the
+// browser's own native speech recognizer, which offloads the work off-device.
+// First-run default only — an explicit saved choice always wins.
+function pickDefaultSTTEngine(){
+  if(DeviceProfile.tier==='low' && SRClass) return 'browser';
+  return 'whisper';
+}
+// Purely decorative, always-on background animation (idle waveform + ambient
+// particles) never needs to match the interactive-response frame rate — on a
+// low-tier chip it just burns battery/thermal headroom for a visual nobody is
+// actively watching. Voice-overlay and goggles gaze-dwell timing stay on the
+// full TARGET_FPS since those ARE interactive.
+const AMBIENT_FPS = DeviceProfile.tier==='low' ? 30 : TARGET_FPS;
+
+const SRClass = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
 // ---------- Config ----------
 let aiProvider   = LS.get('jarvis_provider','local');
@@ -730,7 +781,7 @@ let groqModel    = LS.get('jarvis_groq_model','llama-3.3-70b-versatile');
 // First-run default is picked for THIS device's tier; once saved, the user's own
 // choice in settings always wins over the auto pick.
 let localModel   = LS.get('jarvis_local_model', pickDefaultLocalModel());
-let sttEngine    = LS.get('jarvis_stt_engine','whisper');
+let sttEngine    = LS.get('jarvis_stt_engine', pickDefaultSTTEngine());
 let whisperModel = LS.get('jarvis_whisper_model', pickDefaultWhisperModel());
 let sttLangPref  = LS.get('jarvis_stt_lang','auto');
 let wakeEnginePref = LS.get('jarvis_wake_engine','auto');
@@ -740,8 +791,6 @@ let elevenlabsKey = LS.get('jarvis_elevenlabs_key','');
 let elevenlabsVoiceId = LS.get('jarvis_elevenlabs_voice','sLfduly0sixkh8riDzed');
 let unrestrictedMode = LS.get('jarvis_unrestricted','off')==='on';
 let unpromptedMode   = LS.get('jarvis_unprompted','on')==='on';
-
-const SRClass = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
 function sttLang(){
   if(sttLangPref && sttLangPref!=='auto') return sttLangPref;
@@ -1216,7 +1265,7 @@ function onSpeechIdle(){
 // ---------- Waveforms ----------
 const waveCanvas=$('waveCanvas');
 const wCtx=waveCanvas.getContext('2d'); // null in canvas-blocking privacy browsers/extensions — guarded below
-const DPR = Math.min(2, window.devicePixelRatio||1);
+const DPR = lowGraphics ? 1 : Math.min(2, window.devicePixelRatio||1);
 let waveW=0, waveH=50;
 function sizeWave(){
   waveW = waveCanvas.offsetWidth||680;
@@ -1226,7 +1275,7 @@ function sizeWave(){
 sizeWave();
 if('ResizeObserver' in window) new ResizeObserver(sizeWave).observe(waveCanvas); else window.addEventListener('resize', sizeWave);
 let wavePhase=0, micLevel=0;
-const waveLimiter = makeLimiter(TARGET_FPS);
+const waveLimiter = makeLimiter(AMBIENT_FPS); // idle ambient viz — see AMBIENT_FPS
 function drawWave(ts=0){
   requestAnimationFrame(drawWave);
   if(!waveLimiter(ts) || document.hidden || !wCtx) return;
@@ -2182,7 +2231,8 @@ async function generateImage(subject){
   showTyping();
   addLog('[IMG] Requesting render: '+subject,'info');
   const seed = Math.floor(Math.random()*1e6);
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(subject)}?width=1024&height=1024&nologo=true&seed=${seed}`;
+  const dim = lowGraphics ? 640 : 1024; // smaller decode footprint on constrained phones
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(subject)}?width=${dim}&height=${dim}&nologo=true&seed=${seed}`;
   try{
     // Pre-fetch so a bad/unreachable render surfaces as a spoken error instead
     // of a broken image sitting silently in the chat.
@@ -2461,8 +2511,19 @@ const Hands = {
       const opts=d=>({ baseOptions:{ modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task', delegate:d },
         runningMode:'VIDEO', numHands:1, minHandDetectionConfidence:0.5, minHandPresenceConfidence:0.5, minTrackingConfidence:0.5 });
       let lm=null, where='GPU';
-      try{ lm=await vision.HandLandmarker.createFromOptions(fs, opts('GPU')); }
-      catch(e){ where='CPU'; lm=await vision.HandLandmarker.createFromOptions(fs, opts('CPU')); }
+      // A live neural-net inference delegate on the GPU is a far bigger graphics-
+      // memory draw than anything else in this app. Weak mobile GPUs (Adreno 6xx
+      // class and below) can initialize it fine and then run out of memory once
+      // it's actually inferring every frame — so low-graphics devices skip the
+      // GPU delegate entirely and go straight to CPU. Gaze-dwell selection still
+      // works with zero hand-tracking at all, so this costs no functionality.
+      if(lowGraphics){
+        where='CPU';
+        lm=await vision.HandLandmarker.createFromOptions(fs, opts('CPU'));
+      } else {
+        try{ lm=await vision.HandLandmarker.createFromOptions(fs, opts('GPU')); }
+        catch(e){ where='CPU'; lm=await vision.HandLandmarker.createFromOptions(fs, opts('CPU')); }
+      }
       this.landmarker=lm; this.ready=true;
       addLog('[HANDS] Hand tracking online ('+where+')','ok');
       return lm;
@@ -2795,13 +2856,19 @@ document.addEventListener('visibilitychange', async ()=>{
 });
 
 // ============================================================================
-//  PARTICLES
+//  PARTICLES — skipped entirely in low-graphics mode; a full-viewport canvas
+//  costs real graphics memory just by existing, whether or not it's drawn to.
 // ============================================================================
-const pCanvas=document.createElement('canvas'); pCanvas.id='particleCanvas'; document.body.appendChild(pCanvas);
-const pCtx=pCanvas.getContext('2d');
+const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PARTICLE_COUNT = (reduceMotion || lowGraphics) ? 0 : (DeviceProfile.tier==='low' ? 24 : DeviceProfile.tier==='high' ? 80 : 50);
+let pCanvas=null, pCtx=null;
 const particles=[];
-function resizePC(){ pCanvas.width=window.innerWidth; pCanvas.height=window.innerHeight; }
-resizePC(); window.addEventListener('resize', resizePC);
+if(PARTICLE_COUNT>0){
+  pCanvas=document.createElement('canvas'); pCanvas.id='particleCanvas'; document.body.appendChild(pCanvas);
+  pCtx=pCanvas.getContext('2d');
+  function resizePC(){ pCanvas.width=window.innerWidth; pCanvas.height=window.innerHeight; }
+  resizePC(); window.addEventListener('resize', resizePC);
+}
 class Particle{
   constructor(){ this.reset(true); }
   reset(init=false){
@@ -2812,10 +2879,8 @@ class Particle{
   update(){ this.x+=this.vx; this.y+=this.vy; this.life-=this.decay; if(this.life<=0||this.y<-10) this.reset(); }
   draw(){ pCtx.globalAlpha=this.life*0.6; pCtx.fillStyle=`hsl(${this.hue},100%,70%)`; pCtx.beginPath(); pCtx.arc(this.x,this.y,this.size,0,Math.PI*2); pCtx.fill(); }
 }
-const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const PARTICLE_COUNT = reduceMotion ? 0 : (DeviceProfile.tier==='low' ? 24 : DeviceProfile.tier==='high' ? 80 : 50);
 for(let i=0;i<PARTICLE_COUNT;i++) particles.push(new Particle());
-const particleLimiter=makeLimiter(TARGET_FPS);
+const particleLimiter=makeLimiter(AMBIENT_FPS); // idle ambient viz — see AMBIENT_FPS
 function animParticles(ts=0){
   requestAnimationFrame(animParticles);
   if(!particleLimiter(ts) || perfSaveMode || document.hidden || !particles.length || !pCtx) return;
@@ -2891,7 +2956,7 @@ function syncSettingsFieldVisibility(){
 function setSelect(id, val, fallback){ const el=$(id); el.value=val; if(el.value!==val && fallback!==undefined) el.value=fallback; }
 function openSettings(){
   setSelect('providerSelect', aiProvider, 'local');
-  setSelect('localModelSelect', localModel, 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
+  setSelect('localModelSelect', localModel, 'Qwen3-0.6B-q4f16_1-MLC');
   $('geminiKeyInput').value=geminiApiKey;
   setSelect('geminiModelSelect', geminiModel, 'gemini-2.5-flash');
   $('groqKeyInput').value=groqApiKey;
@@ -2903,6 +2968,7 @@ function openSettings(){
   setSelect('followUpSelect', followUpEnabled?'on':'off');
   setSelect('pinchSensSelect', pinchSens, 'normal');
   setSelect('handDwellSelect', handDwellPref, 'goggles');
+  setSelect('lowGfxSelect', lowGfxPref, 'auto');
   setSelect('voiceEngineSelect', voiceEngine, 'browser');
   $('elevenlabsKeyInput').value=elevenlabsKey;
   if(knownVoiceIds.includes(elevenlabsVoiceId)){ $('elevenlabsVoiceSelect').value=elevenlabsVoiceId; $('elevenlabsCustomVoiceInput').value=''; }
@@ -2916,7 +2982,7 @@ $('settingsBtn').addEventListener('click', openSettings);
 $('settingsCancel').addEventListener('click', ()=>settingsOverlay.classList.remove('show'));
 settingsOverlay.addEventListener('click', e=>{ if(e.target===settingsOverlay) settingsOverlay.classList.remove('show'); });
 $('settingsSave').addEventListener('click', ()=>{
-  const prevProvider=aiProvider, prevLocal=localModel, prevWake=wakeEnginePref, prevLang=sttLangPref;
+  const prevProvider=aiProvider, prevLocal=localModel, prevWake=wakeEnginePref, prevLang=sttLangPref, prevLowGfx=lowGfxPref;
   aiProvider=$('providerSelect').value;
   localModel=$('localModelSelect').value;
   geminiApiKey=$('geminiKeyInput').value.trim();
@@ -2929,6 +2995,7 @@ $('settingsSave').addEventListener('click', ()=>{
   wakeEnginePref=$('wakeEngineSelect').value;
   followUpEnabled=$('followUpSelect').value==='on';
   pinchSens=$('pinchSensSelect').value; handDwellPref=$('handDwellSelect').value;
+  lowGfxPref=$('lowGfxSelect').value;
   voiceEngine=$('voiceEngineSelect').value;
   elevenlabsKey=$('elevenlabsKeyInput').value.trim();
   const vs=$('elevenlabsVoiceSelect').value;
@@ -2941,6 +3008,7 @@ $('settingsSave').addEventListener('click', ()=>{
   LS.set('jarvis_stt_lang',sttLangPref); LS.set('jarvis_wake_engine',wakeEnginePref);
   LS.set('jarvis_followup',followUpEnabled?'on':'off');
   LS.set('jarvis_pinch_sens',pinchSens); LS.set('jarvis_hand_dwell',handDwellPref);
+  LS.set('jarvis_lowgfx',lowGfxPref);
   LS.set('jarvis_voice_engine',voiceEngine); LS.set('jarvis_elevenlabs_key',elevenlabsKey); LS.set('jarvis_elevenlabs_voice',elevenlabsVoiceId);
 
   refreshGeminiStatus();
@@ -2949,6 +3017,13 @@ $('settingsSave').addEventListener('click', ()=>{
   if(voiceEngine==='elevenlabs' && !elevenlabsKey) addLog('[VOICE] ElevenLabs selected but no key — using browser voice','warn');
   if(sttEngine==='whisper' || effectiveWakeEngine()==='local') Whisper.ensure().catch(()=>{});
   if(prevWake!==wakeEnginePref || prevLang!==sttLangPref){ Wake.suspend().then(()=>Wake.resumeSoon()); }
+  if(prevLowGfx!==lowGfxPref){
+    // DPR, the particle canvas, and the hand-tracking GPU/CPU delegate choice
+    // are all decided once at load — a reload is the reliable way to fully
+    // apply a change here rather than leaving things half-switched mid-session.
+    addLog('[SYS] Low graphics mode changed — reloading to apply','warn');
+    setTimeout(()=>location.reload(), 400);
+  }
   if(aiProvider==='local' && (prevProvider!=='local' || prevLocal!==localModel)){
     reply('On-device core selected, sir. Loading it onto this device\u2019s chip now.');
     Local.ensure().catch(err=>reply(err.userMessage||'The on-device model failed to load, sir.'));
@@ -2971,6 +3046,12 @@ async function boot(){
   $('bootOverlay').classList.add('hide');
   getAudioCtx();
   addLog(`[SYS] Device profile: ${DeviceProfile.tier} tier (${DeviceProfile.cores} cores, ~${DeviceProfile.mem}GB, ${DeviceProfile.mobile?'mobile':'desktop'}) — picking models to match`,'info');
+  if(aiProvider==='local'){
+    // Tell the user up front, rather than only after they try to chat and hit
+    // the "WebGPU unavailable" error reply — most low-tier mobile GPUs (Adreno
+    // 6xx class and below) don't expose a usable WebGPU adapter in Chrome yet.
+    hasWebGPU().then(ok=>{ if(!ok) addLog('[SYS] This GPU has no usable WebGPU — on-device neural core will not run here; link Gemini or Groq in settings for cloud responses','warn'); });
+  }
   try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; window.speechSynthesis.speak(u); }catch(e){}
   const h=new Date().getHours(); const g=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
   const remembered = (Memory.history.length||Memory.facts.length) ? ' I have kept our previous conversation in memory.' : '';
