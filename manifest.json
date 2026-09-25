@@ -1,7 +1,7 @@
 {
   "name": "J.A.R.V.I.S — AR Assistant",
   "short_name": "Jarvis",
-  "description": "Iron Man style AR HUD assistant — on-device AI, 'Hey Jarvis' wake word, hand tracking and stereo goggles mode.",
+  "description": "Iron Man style AR HUD assistant — on-device AI, a live self-model, human-style thinking, Marvel protocols, 'Hey Jarvis' wake word, hand tracking and stereo goggles mode.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -34,5 +34,5 @@
       "purpose": "any"
     }
   ],
-  "version": "9.1"
+  "version": "10.5"
 }

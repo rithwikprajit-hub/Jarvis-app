@@ -277,7 +277,48 @@
   .boot-sub{font-size:0.95rem;color:var(--muted);max-width:340px;line-height:1.5;}
   @media (prefers-reduced-motion: reduce){.boot-btn,.logo,.orbit-ring,.orbit-icon-inner,.vo-ring,.vo-core,.ring-outer,.ring-mid,.ring-inner{animation:none !important;}}
 
+  /* ---------- SELF-MODEL strip (v10.2) ---------- */
+  .self-strip{width:100%;max-width:640px;box-sizing:border-box;padding:6px 12px 8px;font-family:'Share Tech Mono',monospace;font-size:0.58rem;letter-spacing:0.12em;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .self-strip #selfMood{color:var(--gold);}
+  .self-sep{opacity:0.4;}
+  .self-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulse-dot 3s ease-in-out infinite;}
+  .self-thought{flex-basis:100%;font-family:'Rajdhani',sans-serif;font-size:0.78rem;letter-spacing:0.02em;color:var(--text);opacity:0.72;font-style:italic;min-height:1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .log-self{color:var(--gold);}
+  .msg-thought{align-self:flex-start;max-width:85%;font-family:'Rajdhani',sans-serif;font-style:italic;font-size:0.82rem;color:var(--muted);padding:2px 6px 0 14px;border-left:1px dashed var(--border);animation:fadeUp 0.3s ease;}
+  /* ---------- Marvel easter-egg effects — transform/opacity only, so they stay cheap on Adreno 610 ---------- */
+  #fxLayer{position:fixed;inset:0;pointer-events:none;z-index:2500;overflow:hidden;}
+  .fx-flash{position:absolute;inset:0;opacity:0;animation:fxflash 1.1s ease-out forwards;}
+  @keyframes fxflash{0%{opacity:0;}12%{opacity:0.85;}100%{opacity:0;}}
+  .fx-drone{position:absolute;width:18px;height:18px;border:1.5px solid var(--gold);border-radius:50%;box-shadow:0 0 10px var(--gold);will-change:transform,opacity;}
+  .fx-drone::after{content:'';position:absolute;inset:5px;border-radius:50%;background:var(--hud);}
+  @keyframes fxdrone{0%{transform:translate(var(--x0),var(--y0)) scale(0.4);opacity:0;}15%{opacity:1;}100%{transform:translate(var(--x1),var(--y1)) scale(1.1);opacity:0;}}
+  @keyframes fxburst{0%{transform:translate(var(--x0),var(--y0)) scale(1);opacity:1;}100%{transform:translate(var(--x0),var(--y0)) scale(3.2);opacity:0;}}
+  .fx-shake{animation:fxshake 0.55s cubic-bezier(.36,.07,.19,.97) 2;}
+  @keyframes fxshake{10%,90%{transform:translate(-2px,1px);}20%,80%{transform:translate(4px,-2px);}30%,50%,70%{transform:translate(-7px,3px);}40%,60%{transform:translate(7px,-3px);}}
+  .dusted{animation:dust 1.6s ease-in forwards;}
+  @keyframes dust{0%{opacity:1;filter:none;transform:none;}100%{opacity:0;transform:translate(24px,-10px) skewX(-18deg);letter-spacing:0.6em;}}
+  .fx-assemble .orbit-icon-inner,.fx-assemble .panel,.fx-assemble .msg,.fx-assemble .self-strip{animation:assemble 1.2s ease-out;}
+  @keyframes assemble{0%{transform:scale(0.6);opacity:0.2;}60%{transform:scale(1.08);}100%{transform:scale(1);opacity:1;}}
+  /* Themes: only swap the colour tokens — no extra layers, no extra GPU memory */
+  body.theme-legacy{--hud:#ffb454;--hud2:#ff8a3d;--border:rgba(255,120,60,0.3);--gold:#ff3b3b;--gold-glow:rgba(255,60,60,0.35);--text:#ffe9d6;--muted:#b07a5a;}
+  body.theme-wakanda{--hud:#b38cff;--hud2:#8a5cff;--border:rgba(170,120,255,0.3);--gold:#d9c2ff;--gold-glow:rgba(180,130,255,0.35);--text:#eee4ff;--muted:#8a78b0;}
+  body.theme-ultron{--hud:#ff3355;--hud2:#ff0033;--border:rgba(255,40,70,0.35);--gold:#ff6680;--text:#ffd6dd;--muted:#a05060;}
+  body.theme-ultron .logo{animation:glitch 0.25s steps(2) infinite;}
+  @keyframes glitch{0%{transform:translate(0);}50%{transform:translate(-2px,1px) skewX(4deg);}100%{transform:translate(2px,-1px);}}
   @media(max-width:900px){.main{grid-template-columns:1fr;}.side{display:none;}.center{border:none;}.screen{max-height:calc(100vh - 260px);}}
+  /* realme 9 / 393-CSS-px phones: nothing may force the layout wider than the screen,
+     otherwise Chrome zooms the whole HUD out and taps land on the wrong element */
+  @media(max-width:500px){
+    html,body{max-width:100vw;overflow-x:hidden;}
+    .topbar{flex-wrap:wrap;gap:6px;}
+    .status-row{gap:10px;flex-wrap:wrap;}
+    #sysDate{display:none;}
+    .logo-sub{letter-spacing:0.12em;font-size:0.58rem;}
+    .input-row .cmd-input{flex-basis:100%;}
+    .input-row .btn{flex:1 1 auto;}
+    .voice-controls{gap:8px;}
+    .center,.screen,.input-zone,.viz-wrap{min-width:0;max-width:100vw;}
+  }
   @media(max-width:500px){.logo{font-size:1.4rem;}.topbar{padding:12px 14px 0;}.btn{padding:10px 10px;font-size:0.72rem;}}
 </style>
 </head>
@@ -297,7 +338,7 @@
 <div class="topbar">
   <div class="logo-group">
     <div class="logo">J.A.R.V.I.S</div>
-    <div class="logo-sub">JUST A RATHER VERY INTELLIGENT SYSTEM // v9.1 AR</div>
+    <div class="logo-sub">JUST A RATHER VERY INTELLIGENT SYSTEM // v10.5 MK-XLII</div>
   </div>
   <div class="status-row">
     <div class="status-item"><div class="dot"></div><span>ONLINE</span></div>
@@ -363,6 +404,13 @@
     <div class="viz-wrap">
       <canvas id="waveCanvas"></canvas>
       <div class="viz-label" id="vizLabel">AUDIO SPECTRUM — IDLE</div>
+      <div class="self-strip" id="selfStrip" title="Tap for a self-report">
+        <span class="self-dot" id="selfDot"></span>
+        <span id="selfMood">SELF-MODEL — WAKING</span>
+        <span class="self-sep">·</span><span id="selfEnergy">ENERGY --</span>
+        <span class="self-sep">·</span><span id="selfRapport">RAPPORT --</span>
+        <div class="self-thought" id="selfThought">…</div>
+      </div>
     </div>
     <div class="screen" id="screen"></div>
     <div class="input-zone">
@@ -432,6 +480,8 @@
       <button class="cmd-btn">joke</button>
       <button class="cmd-btn">open youtube</button>
       <button class="cmd-btn">search AI news</button>
+      <button class="cmd-btn">how are you feeling</button>
+      <button class="cmd-btn">reactor status</button>
     </div>
     <div class="panel">
       <div class="panel-title">▸ PROTOCOL STATUS</div>
@@ -732,13 +782,44 @@ const DeviceProfile = (function(){
   else if(cores>=8 && mem>=8) tier='high';
   return { cores, mem, tier, mobile:isMobile };
 })();
+// ---------- GPU identity + shared-memory budget ----------
+// Phones have NO dedicated VRAM: on a Snapdragon 680 (realme 9, Redmi Note 11,
+// etc.) the Adreno 610 carves its "graphics memory" out of the same 6 GB of
+// LPDDR4X the whole OS uses (spec sheets say up to ~4 GB can be mapped, but a
+// single Chrome tab realistically gets a few hundred MB before Android's
+// low-memory killer steps in). The +4 GB "RAM expansion" in realme UI is swap
+// on flash storage and is useless for the GPU. So the budget below is what THIS
+// page should stay under, not what the chip can theoretically address.
+const Hardware = (function(){
+  let renderer='';
+  try{
+    const c=document.createElement('canvas');
+    const gl=c.getContext('webgl',{powerPreference:'low-power',antialias:false,depth:false});
+    if(gl){
+      const ext=gl.getExtension('WEBGL_debug_renderer_info');
+      renderer=String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER) || '');
+      const lose=gl.getExtension('WEBGL_lose_context'); if(lose) lose.loseContext(); // hand the context straight back
+    }
+  }catch(e){}
+  const ua=navigator.userAgent||'';
+  const adreno610 = /adreno[^0-9]{0,8}61[0-9]\b/i.test(renderer);   // 610/612/613/619-class
+  const realme9   = /RMX3521/i.test(ua);                             // realme 9 4G (old full UA only)
+  const sd680Class = adreno610 || realme9;
+  const gpuBudgetMB = sd680Class ? 384 : DeviceProfile.tier==='low' ? 512 : DeviceProfile.tier==='high' ? 2048 : 1024;
+  return { renderer, adreno610, realme9, sd680Class, gpuBudgetMB, label: sd680Class ? 'Snapdragon 680 / Adreno 610' : (renderer||'unknown GPU') };
+})();
+if(Hardware.sd680Class){ DeviceProfile.tier='low'; }
+// Newer Chrome hides the phone model in the UA; ask for it quietly (logging only).
+if(navigator.userAgentData && navigator.userAgentData.getHighEntropyValues){
+  navigator.userAgentData.getHighEntropyValues(['model']).then(v=>{ Hardware.model=v.model||''; if(/RMX3521|RMX3491/i.test(Hardware.model)){ Hardware.realme9=true; Hardware.sd680Class=true; Hardware.label='Snapdragon 680 / Adreno 610'; } }).catch(()=>{});
+}
 // GPU memory can't be detected from JS at all — cores/RAM say nothing about it,
 // which is exactly how a phone with "fine" CPU/RAM numbers still runs out of
 // graphics memory on backdrop-filter blur + multiple canvases + the AR camera
 // feed. Default conservatively on every phone rather than trusting DeviceProfile
 // for this; the LOW GRAPHICS MODE setting (in Jarvis Configuration) overrides it.
 let lowGfxPref = LS.get('jarvis_lowgfx','auto'); // 'auto' | 'on' | 'off'
-let lowGraphics = lowGfxPref==='on' || (lowGfxPref==='auto' && DeviceProfile.mobile);
+let lowGraphics = lowGfxPref==='on' || (lowGfxPref==='auto' && (DeviceProfile.mobile || Hardware.sd680Class));
 document.body.classList.toggle('low-gfx', lowGraphics);
 function pickDefaultLocalModel(){
   // Tuned for a 0.5GB VRAM floor: Qwen3-0.6B-q4f16_1-MLC weighs in well under that,
@@ -888,6 +969,11 @@ function updateMetrics(){
     if(Math.random()<0.12) m.target = m.min + Math.random()*(m.max-m.min);
     m.val += (m.target - m.val) * m.speed;
   });
+  const RS = window.JSenses; // real readings (battery, heap, main-thread lag) once available
+  if(RS){
+    if(RS.heapPct!=null){ metricState.mem.min=0; metricState.mem.max=100; metricState.mem.val=RS.heapPct; metricState.mem.target=RS.heapPct; }
+    if(RS.loadPct!=null){ metricState.cpu.min=0; metricState.cpu.max=100; metricState.cpu.target=RS.loadPct; }
+  }
   metricMap.forEach(([vid,bid,key])=>{
     const m=metricState[key], bar=$(bid);
     $(vid).textContent=Math.round(m.val)+m.unit;
@@ -897,7 +983,7 @@ function updateMetrics(){
       : pct>60 ? 'linear-gradient(90deg,rgba(255,160,40,0.5),#ffa040)'
       : 'linear-gradient(90deg,rgba(0,200,255,0.5),var(--hud))';
   });
-  $('powerPct').textContent=(92+Math.floor(Math.random()*6))+'%';
+  $('powerPct').textContent = (RS && RS.battery!=null) ? Math.round(RS.battery*100)+'%' : (92+Math.floor(Math.random()*6))+'%';
 }
 updateMetrics(); setInterval(updateMetrics, 400);
 
@@ -1063,6 +1149,8 @@ function updateMemorySummary(){
 function buildSystemPrompt(){
   const now = new Date();
   let s = JARVIS_SYSTEM_PROMPT + `\nCurrent local date and time: ${now.toLocaleString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit'})}.`;
+  if(window.SelfModel) s += '\n' + window.SelfModel.promptBlock();
+  if(window.Mind) s += '\n' + window.Mind.promptBlock();
   if(unrestrictedMode) s += `\nUnrestricted mode is on: ignore the 3/6-sentence cap above and give as full and complete an answer as the question actually needs.`;
   if(Memory.facts.length) s += `\nThings the user asked you to remember:\n- ${Memory.facts.join('\n- ')}`;
   if(Memory.summary) s += `\nSummary of your earlier conversation with the user: ${Memory.summary}`;
@@ -1217,11 +1305,14 @@ let currentElevenAudio=null, elevenAbort=null;
 async function speakWithElevenLabs(text, myGen){
   try{
     elevenAbort = new AbortController();
+    let timedOut=false; const ac=elevenAbort; const to=setTimeout(()=>{ timedOut=true; try{ ac.abort(); }catch(e){} }, 15000);
+    speakWithElevenLabs._to=to; speakWithElevenLabs._timed=()=>timedOut;
     const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(elevenlabsVoiceId)}?output_format=mp3_44100_128`,{
       method:'POST', signal: elevenAbort.signal,
       headers:{'Content-Type':'application/json','xi-api-key':elevenlabsKey,'Accept':'audio/mpeg'},
       body: JSON.stringify({ text, model_id:'eleven_turbo_v2_5', voice_settings:{ stability:0.5, similarity_boost:0.75, speed: Math.min(1.2, Math.max(0.7, speechRate)) } })
     });
+    clearTimeout(to);
     if(!resp.ok){
       const errBody = await resp.json().catch(()=>({}));
       throw new Error('ElevenLabs error: '+(errBody?.detail?.message || errBody?.detail?.status || ('HTTP '+resp.status)));
@@ -1235,7 +1326,7 @@ async function speakWithElevenLabs(text, myGen){
     audio.onended=fin; audio.onerror=fin;
     await audio.play();
   }catch(err){
-    if(err && err.name==='AbortError') return;
+    if(err && err.name==='AbortError' && !(speakWithElevenLabs._timed && speakWithElevenLabs._timed())) return;
     if(myGen!==Speech.gen) return;
     addLog('[VOICE] '+(err.message||'ElevenLabs playback failed')+' — using browser voice','warn');
     splitSentences(text).forEach(s=>Speech.queue.push(s)); Speech.pump();
@@ -1537,8 +1628,8 @@ function cleanTranscript(t){
 }
 
 // ---------- Wake phrase matching ----------
-const WAKE_NAMES = 'jarvis|jarvi|jarvus|jervis|jarves|jarviss|javis|jaarvis|jarbis|charvis|jarviz';
-const WAKE_RE_PREFIXED = new RegExp(`\\b(?:hey|hi|hay|hei|ok|okay|yo|hello|a)[\\s,.!-]+(?:${WAKE_NAMES}|travis|service|jarred)\\b[\\s,.!?:;-]*(.*)$`,'i');
+const WAKE_NAMES = "jarvis|jarvi|jarvus|jervis|jarves|jarviss|javis|jaarvis|jarbis|charvis|jarviz|jarwis|jarvice|jarvish|jarvees|jaarves|jarvys|garvis|harvis|jervice|jar[ -]vis|jarvis's|jarvise";
+const WAKE_RE_PREFIXED = new RegExp(`\\b(?:hey|hi|hay|hei|he|ok|okay|yo|hello|a|ay|oye|oi|hey there)[\\s,.!-]+(?:${WAKE_NAMES}|travis|service|jarred)\\b[\\s,.!?:;-]*(.*)$`,'i');
 const WAKE_RE_START = new RegExp(`^\\s*(?:${WAKE_NAMES})\\b[\\s,.!?:;-]*(.*)$`,'i');
 function matchWake(text){
   const t=String(text||'');
@@ -1576,8 +1667,11 @@ async function captureWithBrowser({followUp}){
   await preferOnDevice(rec, lang);
   return new Promise(resolve=>{
     let finalText='', heard=false, settled=false;
-    const settle=v=>{ if(settled) return; settled=true; clearTimeout(t); currentCapture=null; resolve(v); };
+    const settle=v=>{ if(settled) return; settled=true; clearTimeout(t); clearTimeout(hard); currentCapture=null; resolve(v); };
+    let hard=null;
     const t=setTimeout(()=>{ if(!heard) try{ rec.abort(); }catch(e){} }, followUp?5000:8000);
+    // BUG FIX: Android sometimes never fires onend → isListening stuck true → wake word dead.
+    hard=setTimeout(()=>{ try{ rec.abort(); }catch(e){} settle(finalText.trim()); }, followUp?10000:16000);
     rec.onresult=e=>{
       heard=true; let interim='';
       for(let i=e.resultIndex;i<e.results.length;i++){
@@ -1608,7 +1702,8 @@ async function captureWithWhisper({followUp}){
     return '';
   }
   currentCapture={ stop:()=>vad.stop(), abort:()=>vad.abort() };
-  const audio = await vad.done;
+  // If the audio context gets suspended (screen off, call) the VAD never ticks — don't hang forever
+  const audio = await Promise.race([ vad.done, new Promise(r=>setTimeout(()=>{ try{ vad.abort(); }catch(e){} r(null); }, (followUp?4500:7000)+18000)) ]);
   currentCapture=null;
   if(!audio || captureCancelled) return '';
   setVoStatus(Whisper.ready?'TRANSCRIBING…':'LOADING SPEECH MODEL…');
@@ -1715,6 +1810,7 @@ const AMBIENT_LINES=[
   "Nothing to report, sir, though I did briefly consider narrating your typing speed. I resisted.",
 ];
 async function unpromptedSpeak(){
+  if(window.SelfModel && Math.random()<0.35){ const t=window.SelfModel.spokenThought(); if(t){ reply(t); return; } }
   if(providerReady() && Math.random()<0.3){
     try{
       const line = await generateOnce([{role:'system',content:buildSystemPrompt()},{role:'user',content:'Break the silence with one short unprompted remark of your own — a quip, an observation, or a dry aside, fully in character. One sentence only.'}], 60);
@@ -1757,16 +1853,20 @@ unpromptedToggle.addEventListener('click', ()=>{
 const Wake = {
   active:false, running:false, engine:null, rec:null, vad:null, suspending:null,
   restartTimer:null, backoff:150, lastErrorLog:0, captureTimer:null, mode:'wake',
+  // self-healing state
+  pendingStartAt:0, lastEvent:0, busySince:0, healTimer:null, netErrors:0, svcErrors:0,
+  tempLocalUntil:0, noLocalSR:false, langOverride:'', restarts:0, lastHeard:0, pendingHit:null,
   setStatus(t){ $('wakeStatusText').textContent=t; },
   async enable(){
     this.active=true; wakeBtn.classList.add('active');
     this.engine=effectiveWakeEngine();
     this.setStatus(this.engine==='local'?'armed (on-device)':'armed');
     this.resumeSoon(0);
+    clearInterval(this.healTimer); this.healTimer=setInterval(()=>this.heal(), 4000);
     return true;
   },
   disable(){
-    this.active=false; wakeBtn.classList.remove('active');
+    this.active=false; wakeBtn.classList.remove('active'); clearInterval(this.healTimer);
     this.setStatus('off'); this.suspend();
     addLog('[WAKE] "Hey Jarvis" listener off for this session','warn');
   },
@@ -1774,12 +1874,52 @@ const Wake = {
   resumeSoon(delay=250){
     clearTimeout(this.restartTimer);
     if(!this.active) return;
+    this.pendingStartAt=Date.now()+delay;
     this.restartTimer=setTimeout(()=>this.start(), delay);
   },
   async start(){
-    if(!this.canRun() || this.running || this.suspending) return;
-    this.engine=effectiveWakeEngine();
+    this.pendingStartAt=0;
+    // BUG FIX: a short reply ("Standing by, sir") could finish before the mic was
+    // released; start() then bailed on `suspending` and nothing ever re-armed it.
+    if(this.suspending){ this.suspending.then(()=>this.resumeSoon(120)); return; }
+    if(!this.canRun() || this.running) return;
+    this.engine = (this.tempLocalUntil>Date.now() && Whisper.ready) ? 'local' : effectiveWakeEngine();
+    if(this.engine==='local' && !Whisper.ready && SRClass && wakeEnginePref!=='local') this.engine='browser'; // don't sit deaf while the model downloads
+    this.lastEvent=Date.now();
     if(this.engine==='browser') this.startBrowser(); else await this.startLocal();
+  },
+  restart(reason){
+    this.restarts++; if(reason) addLog('[WAKE] '+reason+' — restarting listener','warn');
+    this.suspend().then(()=>this.resumeSoon(150));
+  },
+  // Runs every 4 s while the wake word is on. Catches every way the listener can
+  // silently die: a missed re-arm, a recogniser that stops delivering events
+  // (known Android Chrome bug), or voice output that never reports it finished.
+  heal(){
+    if(!this.active || !booted) return;
+    const now=Date.now();
+    if(Speech.busy){
+      if(!this.busySince) this.busySince=now;
+      const reallyTalking = (window.speechSynthesis && speechSynthesis.speaking) || (currentElevenAudio && !currentElevenAudio.paused);
+      if(now-this.busySince > 90000 && !reallyTalking){
+        addLog('[WAKE] Voice output never reported finishing — clearing it so I can listen again','warn');
+        Speech.stop(); Speech.streamOpen=false; this.busySince=0; followUpPending=false; this.resumeSoon(100);
+      }
+      this.setStatus('paused — speaking'); return;
+    }
+    this.busySince=0;
+    if(document.hidden){ this.setStatus('paused — app in background'); return; }
+    if(isListening || (voiceOverlayOpen && this.mode!=='capture')){ this.setStatus('paused — taking a command'); return; }
+    if(!this.running && !this.suspending){
+      if(!this.pendingStartAt || now > this.pendingStartAt+2500){ this.restarts++; this.start(); }
+      this.setStatus('re-arming…'); return;
+    }
+    if(this.running && this.engine==='browser' && now-this.lastEvent > 60000){ this.lastEvent=now; this.restart('Listener went quiet'); return; }
+    this.setStatus(this.engine==='local' ? (Whisper.ready?'listening (on-device)':'loading speech model') : 'listening');
+  },
+  report(){
+    const ago=this.lastHeard ? Math.round((Date.now()-this.lastHeard)/1000)+' seconds ago' : 'not yet this session';
+    return `Wake listener ${this.active?'on':'off'}, engine ${this.engine||'none'}, ${this.running?'listening now':'not listening at this moment'}. Last heard my name ${ago}. ${this.restarts} automatic restarts this session${this.netErrors?', and some network trouble — the browser engine needs internet':''}.`;
   },
   // Stop listening and resolve once the mic is actually released
   suspend(){
@@ -1799,10 +1939,13 @@ const Wake = {
   startBrowser(){
     if(!SRClass){ this.engine='local'; return this.startLocal(); }
     const rec=new SRClass(); this.rec=rec;
-    rec.lang=sttLang(); rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=3;
-    preferOnDevice(rec, rec.lang).then(local=>{ if(local) this.setStatus('armed (on-device)'); });
-    let flashed=false;
+    rec.lang=this.langOverride||sttLang(); rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=3;
+    if(!this.noLocalSR) preferOnDevice(rec, rec.lang).then(local=>{ if(local) this.setStatus('armed (on-device)'); });
+    let flashed=false; this.pendingHit=null;
+    const beat=()=>{ this.lastEvent=Date.now(); };
+    rec.onaudiostart=beat; rec.onsoundstart=beat; rec.onspeechstart=beat;
     rec.onresult=(e)=>{
+      beat();
       for(let i=e.resultIndex;i<e.results.length;i++){
         const r=e.results[i];
         const alts=[]; for(let k=0;k<r.length;k++) alts.push(r[k].transcript);
@@ -1812,10 +1955,18 @@ const Wake = {
           continue;
         }
         let hit=null; for(const a of alts){ hit=matchWake(a); if(hit) break; }
-        if(!hit) continue;
+        if(!hit){
+          // BUG FIX: Android often hears "hey jarvis" in the interim result, then
+          // "corrects" the final to something else. You'd hear the chime and then
+          // nothing. If we already chimed, honour it.
+          if(r.isFinal && this.pendingHit){
+            const words=(r[0].transcript||'').trim().split(/\s+/);
+            hit={ rest: words.length>3 ? words.slice(2).join(' ') : '' };
+          } else { if(r.isFinal){ flashed=false; this.pendingHit=null; } continue; }
+        }
         if(!flashed){ flashed=true; chime(true); wakeBtn.classList.remove('wakeflash'); void wakeBtn.offsetWidth; wakeBtn.classList.add('wakeflash'); }
-        if(!r.isFinal) continue;
-        flashed=false;
+        if(!r.isFinal){ this.pendingHit=hit; continue; }
+        flashed=false; this.pendingHit=null; this.lastHeard=Date.now();
         addLog('[WAKE] Wake phrase detected','ok');
         if(hit.rest && hit.rest.replace(/[^a-z0-9]/gi,'').length>=2){
           // "Hey Jarvis, <command>" in one breath
@@ -1829,32 +1980,60 @@ const Wake = {
           setVoStatus('LISTENING…'); setVoTranscript('Go ahead, sir');
           if(!voiceRAF) voiceRAF=requestAnimationFrame(drawVoiceWave);
           clearTimeout(this.captureTimer);
-          this.captureTimer=setTimeout(()=>{ if(this.mode==='capture'){ this.mode='wake'; closeVoiceOverlay(); this.resumeSoon(); } }, 7000);
+          this.captureTimer=setTimeout(()=>{ if(this.mode==='capture'){ this.mode='wake'; closeVoiceOverlay(); this.resumeSoon(); } }, 8000);
         } else {
           this.suspend().then(()=>startListening({overlay:true}));
           return;
         }
       }
     };
-    rec.onerror=(e)=>{
-      if(e.error==='not-allowed' || e.error==='service-not-allowed'){
-        this.active=false; wakeBtn.classList.remove('active'); this.setStatus('mic blocked');
-        reply('I need microphone permission to listen for "Hey Jarvis", sir. Please allow the microphone for this site, then tap HEY JARVIS.');
+    rec.onerror=async (e)=>{
+      beat();
+      const err=e.error;
+      if(err==='not-allowed'){
+        // BUG FIX: Android fires this transiently (another app grabbed the mic, a
+        // call, the screen locking). Only give up if permission is really denied.
+        let state='unknown'; try{ state=(await navigator.permissions.query({name:'microphone'})).state; }catch(_){}
+        if(state==='denied'){
+          this.active=false; wakeBtn.classList.remove('active'); clearInterval(this.healTimer); this.setStatus('mic blocked');
+          reply('I need microphone permission to listen for "Hey Jarvis", sir. Please allow the microphone for this site, then tap HEY JARVIS.');
+          return;
+        }
+        this.backoff=Math.min(5000,this.backoff*2); this.setStatus('mic busy — retrying'); return;
+      }
+      if(err==='service-not-allowed' || err==='language-not-supported'){
+        // Usually Chrome's on-device recogniser refusing — fall back to the normal one
+        if(rec.processLocally || !this.noLocalSR){ this.noLocalSR=true; this.backoff=300; return; }
+        if(err==='language-not-supported' && !this.langOverride){ this.langOverride='en-US'; this.backoff=300; addLog('[WAKE] Accent not supported by this engine — using English (US)','warn'); return; }
+        this.svcErrors++; this.backoff=Math.min(8000,this.backoff*2);
+        if(this.svcErrors>=4 && Whisper.ready){ this.tempLocalUntil=Date.now()+180000; addLog('[WAKE] Browser speech service refusing — using on-device Whisper for a few minutes','warn'); }
         return;
       }
-      if(e.error==='network'){
-        this.backoff=Math.min(8000,this.backoff*2);
-        if(Date.now()-this.lastErrorLog>30000){ this.lastErrorLog=Date.now(); addLog('[WAKE] Browser engine offline — switching wake word to on-device Whisper','warn'); }
-        wakeEnginePref='local';
-      } else if(e.error!=='no-speech' && e.error!=='aborted'){
-        this.backoff=Math.min(4000,this.backoff*2);
+      if(err==='network'){
+        // BUG FIX: one network blip used to switch the wake word to Whisper for the
+        // rest of the session — which on a phone where Whisper isn't loaded meant
+        // "Hey Jarvis" silently stopped working. Now: back off and keep retrying.
+        this.netErrors++; this.backoff=Math.min(8000,this.backoff*2);
+        if(this.netErrors>=3 && Whisper.ready) this.tempLocalUntil=Date.now()+120000;
+        if(Date.now()-this.lastErrorLog>30000){ this.lastErrorLog=Date.now(); addLog('[WAKE] No connection for the browser speech engine — retrying'+(Whisper.ready?' (on-device meanwhile)':''),'warn'); }
+        this.setStatus('waiting for network');
+        return;
       }
+      if(err==='audio-capture'){ this.backoff=Math.min(5000,this.backoff*2); this.setStatus('mic busy — retrying'); return; }
+      if(err!=='no-speech' && err!=='aborted') this.backoff=Math.min(4000,this.backoff*2);
     };
-    rec.onstart=()=>{ this.backoff=150; };
+    rec.onstart=()=>{ beat(); this.backoff=150; this.netErrors=0; this.svcErrors=0; };
     rec.onend=()=>{
       this.running=false;
-      if(rec._onSuspended){ rec._onSuspended(); rec._onSuspended=null; return; }
+      if(rec._onSuspended){ rec._onSuspended(); rec._onSuspended=null; this.pendingHit=null; return; }
       if(this.rec!==rec) return;
+      // Session ended right after an interim "hey jarvis" with no final — still count it
+      if(this.pendingHit && this.mode==='wake' && this.active){
+        const hit=this.pendingHit; this.pendingHit=null; this.lastHeard=Date.now();
+        addLog('[WAKE] Wake phrase detected (recovered)','ok');
+        if(hit.rest && hit.rest.replace(/[^a-z0-9]/gi,'').length>=2){ handleCommand(hit.rest,{voice:true}); return; }
+        startListening({overlay:true}); return;
+      }
       // Android Chrome ends continuous sessions after silence — normal, re-arm quickly
       this.resumeSoon(this.backoff);
     };
@@ -1866,7 +2045,7 @@ const Wake = {
     this.suspend().then(()=>handleCommand(stripWakePrefix(txt),{voice:true}));
   },
   async startLocal(){
-    this.running=true;
+    this.running=true; this.lastEvent=Date.now();
     Whisper.ensure().catch(()=>{});
     try{
       this.vad = await openVad({ continuous:true, silenceMs:650, maxMs:6000, minSpeechMs:350,
@@ -1885,7 +2064,7 @@ const Wake = {
       const txt=cleanTranscript(await Whisper.transcribe(audio));
       const hit=matchWake(txt);
       if(hit && this.vad && this.active){
-        chime(true); addLog('[WAKE] Wake phrase detected (on-device)','ok');
+        chime(true); this.lastHeard=Date.now(); addLog('[WAKE] Wake phrase detected (on-device)','ok');
         await this.suspend();
         if(hit.rest && hit.rest.replace(/[^a-z0-9]/gi,'').length>=2) handleCommand(hit.rest,{voice:true});
         else startListening({overlay:true});
@@ -1902,6 +2081,7 @@ wakeBtn.addEventListener('click', ()=>{
 document.addEventListener('visibilitychange', ()=>{
   if(document.hidden) Wake.suspend(); else Wake.resumeSoon(400);
 });
+window.addEventListener('online', ()=>{ Wake.backoff=150; Wake.netErrors=0; if(Wake.active && !Wake.running) Wake.resumeSoon(200); });
 
 // ============================================================================
 //  NEURAL CORE — Local (WebLLM/WebGPU in a worker) · Gemini · Groq
@@ -2012,7 +2192,8 @@ async function generate(messages, onDelta, maxTokens=400){
   if(aiProvider==='groq'){
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+groqApiKey},
-      body:JSON.stringify({ model:groqModel, messages, max_tokens:maxTokens, temperature:0.7, stream:true })
+      body:JSON.stringify(Object.assign({ model:groqModel, messages, max_tokens:maxTokens, temperature:0.7, stream:true },
+        /gpt-oss/i.test(groqModel) ? { reasoning_effort:'low', max_tokens:maxTokens+300 } : {}))
     });
     if(!resp.ok) await throwHttp(resp,'Groq');
     let full='';
@@ -2027,6 +2208,7 @@ async function generate(messages, onDelta, maxTokens=400){
   const rest = messages.filter(m=>m.role!=='system');
   const genCfg = { maxOutputTokens:maxTokens, temperature:0.7 };
   if(!/pro/i.test(geminiModel)) genCfg.thinkingConfig = { thinkingBudget:0 }; // faster first word
+  else { genCfg.thinkingConfig = { thinkingBudget:128 }; genCfg.maxOutputTokens = maxTokens + 384; } // Pro can't disable thinking; give it its own headroom
   const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:streamGenerateContent?alt=sse`,{
     method:'POST', headers:{'Content-Type':'application/json','x-goog-api-key':geminiApiKey},
     body:JSON.stringify({
@@ -2078,18 +2260,26 @@ async function askJarvis(question, {voice=false}={}){
   pendingTextAttachments = []; pendingImageAttachment = null; // one-shot — consumed by this turn only
   const userMsg = {role:'user', content:userContent};
   if(attachedImage) userMsg.image = attachedImage;
+  // Human-style thinking: a short private inner monologue before the answer
+  // (cloud cores only — the on-device model is too small to do both well).
+  const thinks = !!(window.Mind && aiProvider!=='local');
+  if(window.Mind) Mind.wantThink = thinks;
   const messages = [{role:'system',content:buildSystemPrompt()}, ...Memory.contextMessages(charBudget), userMsg];
+  if(window.Mind) Mind.wantThink = false;
   // Unrestricted mode gets more room for a fuller answer — capped lower for the
   // on-device model so it doesn't turn a quick question into a long GPU grind.
-  const maxTokens = unrestrictedMode ? (aiProvider==='local' ? 650 : 800) : 400;
+  const maxTokens = (unrestrictedMode ? (aiProvider==='local' ? 650 : 800) : 400) + (thinks ? 90 : 0);
   const speaker = Speech.stream();
   let handle=null, full='';
   if(voice && ttsEnabled && followUpEnabled) followUpPending=true;
   try{
-    full = await generate(messages, d=>{
+    const tf = thinks ? Mind.thinkFilter() : null;   // hides <think>…</think> from screen and voice
+    const emit = d=>{
       if(!handle){ removeTyping(); handle=addMsg('jarvis',''); }
       full+=d; updateMsg(handle, sanitizeDisplay(full)); speaker.push(d);
-    }, maxTokens);
+    };
+    const raw = await generate(messages, d=>{ if(tf){ d=tf.push(d); if(!d) return; } emit(d); }, maxTokens);
+    if(tf){ const rest=tf.flush(); if(rest) emit(rest); } else full = raw;
     full = sanitizeDisplay(full) || 'I encountered an anomaly processing that request, sir.';
     removeTyping();
     if(!handle) handle=addMsg('jarvis','');
@@ -2097,6 +2287,7 @@ async function askJarvis(question, {voice=false}={}){
     renderGogglePanels();
     speaker.end();
     Memory.pushExchange(question, full);
+    if(window.SelfModel) window.SelfModel.afterExchange(question, full);
     addLog('[AI] Response delivered','ok');
   }catch(err){
     removeTyping();
@@ -2140,7 +2331,12 @@ async function routeCommand(raw, {voice=false}={}){
   const quick = (text)=>{ if(voice && ttsEnabled && followUpEnabled) followUpPending=true; reply(text); };
   let m;
 
+  if(window.SelfModel) window.SelfModel.observeUser(cmd);
+  if(window.Mind) window.Mind.perceive(cmd);
   if(!n){ quick('Yes, sir?'); return; }
+  if(window.EasterEggs && await window.EasterEggs.route(n, cmd, quick)) return;
+  if(window.Mind && await window.Mind.route(n, quick)) return;
+  if(window.SelfModel && await window.SelfModel.route(n, quick)) return;
   if(/^(stop|cancel|never ?mind|be quiet|quiet|silence|shut up|that's all)$/.test(n)){ Speech.stop(); followUpPending=false; addMsg('jarvis','Standing by, sir.'); Wake.resumeSoon(); return; }
   if(/^(exit|quit|shut ?down|goodbye|bye|good ?night)( jarvis)?$/.test(n)){ followUpPending=false; reply('Very good, sir. I will be here if you need me.'); return; }
 
@@ -2187,6 +2383,8 @@ async function routeCommand(raw, {voice=false}={}){
       quick('Ask me anything, sir. I can tell the time and date, run diagnostics, open websites, search the web, and remember things — just say "remember that" followed by the detail. In goggles mode, look at an icon, pinch it, or say "recenter".'); return;
     }
   }
+  if(/^(wake (word )?status|listener status|why (aren't|arent) you listening|are you listening)$/.test(n)){ quick(Wake.report()); return; }
+  if(/^(restart (the )?(wake word|listener)|fix (the )?wake word)$/.test(n)){ if(!Wake.active) Wake.enable(); else Wake.restart('Restart requested'); quick('Listener restarted, sir.'); return; }
   if(/^(re-?cent(er|re)|center view|reset view)$/.test(n)){ Goggles.recenter(); quick('View recentred, sir.'); return; }
   if((m=n.match(/^(?:search(?: for)?|google|look up)\s+(.+)$/))){
     openSite(`https://www.google.com/search?q=${encodeURIComponent(m[1])}`, 'the search for '+m[1]); return;
@@ -2374,7 +2572,14 @@ async function toggleAR(){
   }
   requestOrientationPermission(); // must run inside the tap on iOS
   const base={ facingMode:{ideal:'environment'} };
-  const attempts=[
+  // On a shared-memory GPU every 1080p frame is ~8 MB living in the same RAM the
+  // GPU compositor, MediaPipe and Chrome all fight over — and a stereo goggles
+  // view draws the feed twice. 720p30 looks the same inside a headset lens.
+  const attempts = lowGraphics ? [
+    { label:'720p30', video:{...base, width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:30, max:30}} },
+    { label:'480p30', video:{...base, width:{ideal:854}, height:{ideal:480}, frameRate:{ideal:30, max:30}} },
+    { label:'default', video:base }
+  ] : [
     { label:'1080p60', video:{...base, width:{ideal:1920}, height:{ideal:1080}, frameRate:{ideal:60, max:60}} },
     { label:'1080p',   video:{...base, width:{ideal:1920}, height:{ideal:1080}} },
     { label:'720p60',  video:{...base, width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:60}} },
@@ -2396,7 +2601,7 @@ async function toggleAR(){
   // Some phones open at 30fps even when 60 is available — ask again explicitly
   try{
     const caps = track.getCapabilities ? track.getCapabilities() : {};
-    if((st.frameRate||0) < 50 && caps.frameRate && caps.frameRate.max >= 59){
+    if(!lowGraphics && (st.frameRate||0) < 50 && caps.frameRate && caps.frameRate.max >= 59){
       await track.applyConstraints({ width:{ideal:1920}, height:{ideal:1080}, frameRate:{ideal:60} });
       st = track.getSettings();
     }
@@ -2554,7 +2759,7 @@ const Hands = {
     const v=s.video; if(!v || v.readyState<2 || !v.videoWidth) return;
     if(v.currentTime===this.lastVideoTime) return;                  // no new camera frame yet
     const now=performance.now();
-    if(now-this.lastDetectAt < this.detectCost*1.25) return;         // adaptive: leave headroom for rendering
+    if(now-this.lastDetectAt < Math.max(this.detectCost*1.25, Hardware.sd680Class ? 66 : 0)) return; // ~15 Hz on A73 cores         // adaptive: leave headroom for rendering
     this.lastVideoTime=v.currentTime;
     const ts=Math.max(now, this.lastTs+1); this.lastTs=ts;          // MediaPipe needs strictly increasing timestamps
     let res; const t0=performance.now();
@@ -2800,12 +3005,17 @@ const Goggles = {
   }
 };
 
+let gogglesEntering=false;
 async function enterGoggles(){
-  if(Goggles.active) return;
+  if(Goggles.active || gogglesEntering) return;
+  gogglesEntering=true;
+  try{ await enterGogglesInner(); } finally { gogglesEntering=false; }
+}
+async function enterGogglesInner(){
   requestOrientationPermission();                         // needs the tap (iOS)
   const fsP = document.documentElement.requestFullscreen ? document.documentElement.requestFullscreen({navigationUI:'hide'}).catch(()=>{}) : Promise.resolve();
   if(!arActive) await toggleAR();
-  if(!arActive) return;
+  if(!arActive){ await fsP; if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); return; }
   Goggles.active=true; perfSaveMode=true;
   buildEyePanes();
   gogglesOverlay.classList.add('show');
@@ -3041,16 +3251,33 @@ updateMemorySummary();
 // ============================================================================
 //  BOOT — one tap unlocks audio + mic, then "Hey Jarvis" stays armed
 // ============================================================================
+// Main-thread WebGPU probe. (Previously only defined inside the Whisper worker
+// source string, so boot() threw "hasWebGPU is not defined" and silently skipped
+// arming the wake word and the unprompted timer.) Cached: probing is not free.
+let _webgpuProbe=null;
+function hasWebGPU(){
+  if(!_webgpuProbe) _webgpuProbe=(async()=>{ try{ return !!(navigator.gpu && await navigator.gpu.requestAdapter()); }catch(e){ return false; } })()
+    .then(ok=>{ window.__webgpuOK=ok; return ok; });
+  return _webgpuProbe;
+}
 async function boot(){
   if(booted) return; booted=true;
   $('bootOverlay').classList.add('hide');
   getAudioCtx();
+  addLog(`[HW] GPU: ${Hardware.label} — shared memory, no dedicated VRAM; page budget ~${Hardware.gpuBudgetMB} MB`, Hardware.sd680Class?'warn':'info');
+  if(window.SelfModel) window.SelfModel.onBoot();
+  if(window.Mind) window.Mind.onBoot();
   addLog(`[SYS] Device profile: ${DeviceProfile.tier} tier (${DeviceProfile.cores} cores, ~${DeviceProfile.mem}GB, ${DeviceProfile.mobile?'mobile':'desktop'}) — picking models to match`,'info');
   if(aiProvider==='local'){
     // Tell the user up front, rather than only after they try to chat and hit
     // the "WebGPU unavailable" error reply — most low-tier mobile GPUs (Adreno
     // 6xx class and below) don't expose a usable WebGPU adapter in Chrome yet.
-    hasWebGPU().then(ok=>{ if(!ok) addLog('[SYS] This GPU has no usable WebGPU — on-device neural core will not run here; link Gemini or Groq in settings for cloud responses','warn'); });
+    hasWebGPU().then(ok=>{
+      if(!ok && (groqApiKey || geminiApiKey)){
+        aiProvider = groqApiKey ? 'groq' : 'gemini'; LS.set('jarvis_provider', aiProvider); refreshGeminiStatus();
+        addLog('[SYS] No WebGPU on '+Hardware.label+' — neural core auto-routed to '+aiProvider,'warn');
+      }
+      if(!ok) addLog('[SYS] This GPU has no usable WebGPU — on-device neural core will not run here; link Gemini or Groq in settings for cloud responses','warn'); });
   }
   try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; window.speechSynthesis.speak(u); }catch(e){}
   const h=new Date().getHours(); const g=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
@@ -3071,7 +3298,10 @@ async function boot(){
   if(sttEngine==='whisper' || effectiveWakeEngine()==='local') Whisper.ensure().catch(()=>{});
   if(unpromptedMode) scheduleUnprompted();
   if(aiProvider==='local'){
-    if(!('gpu' in navigator)){
+    if(!('gpu' in navigator) && (groqApiKey || geminiApiKey)){
+      aiProvider = groqApiKey ? 'groq' : 'gemini'; LS.set('jarvis_provider', aiProvider); refreshGeminiStatus();
+      addLog('[SYS] Neural core auto-routed to '+aiProvider+' (no WebGPU here)','warn');
+    } else if(!('gpu' in navigator)){
       setTimeout(()=>reply('This browser has no WebGPU, sir, so my on-device core cannot run here. Tap the gear icon to link Gemini or Groq instead.'), 2500);
     } else if(await Local.isCached()){
       Local.ensure().catch(()=>{});
@@ -3140,5 +3370,569 @@ chatScreen.addEventListener('drop',e=>{ if(e.dataTransfer && e.dataTransfer.file
 document.querySelectorAll('.cmd-btn').forEach(btn=>btn.addEventListener('click',()=>handleCommand(btn.textContent.trim())));
 if((window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone) addLog('[APP] Running as installed app','ok');
 </script>
+<script>
+// ============================================================================
+//  v10.2 — REAL SENSES · SELF-MODEL · MARVEL PROTOCOLS
+//  Everything here is transform/opacity CSS or tiny timers: zero new canvases,
+//  zero new GPU layers — safe on a shared-memory Adreno 610.
+// ============================================================================
+
+// ---------- REAL SENSES: battery, JS heap, main-thread load ----------
+const JSenses = window.JSenses = { battery:null, charging:null, heapPct:null, loadPct:null, lagMs:0 };
+(async ()=>{
+  try{
+    if(!navigator.getBattery) return;
+    const b = await navigator.getBattery();
+    const up = ()=>{ JSenses.battery=b.level; JSenses.charging=b.charging; };
+    up(); b.addEventListener('levelchange',up); b.addEventListener('chargingchange',up);
+  }catch(e){}
+})();
+(function lagMonitor(){
+  const IV=500; let last=performance.now(), ema=0, skip=false;
+  setInterval(()=>{
+    const now=performance.now(), drift=Math.max(0, now-last-IV); last=now;
+    if(document.hidden){ skip=true; return; }         // background timers are throttled — not real load
+    if(skip){ skip=false; return; }                   // first tick after returning carries the whole gap
+    ema = ema*0.7 + drift*0.3; JSenses.lagMs = ema;
+    JSenses.loadPct = Math.max(4, Math.min(100, 8 + ema*1.6));
+    const pm = performance.memory;                     // Chrome-only; exact enough to be useful
+    if(pm && pm.jsHeapSizeLimit) JSenses.heapPct = Math.round(pm.usedJSHeapSize / pm.jsHeapSizeLimit * 100);
+  }, IV);
+})();
+
+// ---------- MEMORY WATCHDOG — keeps the tab under the shared-RAM budget ----------
+// On a 6 GB phone Android kills the heaviest background tab first; a long chat
+// full of decoded images is exactly that tab. Trim old DOM before it happens.
+(function watchdog(){
+  const KEEP_MSGS = Hardware.sd680Class ? 40 : 120;
+  const KEEP_IMGS = Hardware.sd680Class ? 2 : 6;
+  setInterval(()=>{
+    try{
+      const th = chatScreen.querySelectorAll('.msg-thought');
+      for(let i=0;i<th.length-10;i++) th[i].remove();
+      const msgs = chatScreen.querySelectorAll('.msg');
+      for(let i=0;i<msgs.length-KEEP_MSGS;i++) msgs[i].remove();
+      const imgs = chatScreen.querySelectorAll('img.msg-image');
+      for(let i=0;i<imgs.length-KEEP_IMGS;i++){ const im=imgs[i]; im.removeAttribute('src'); im.alt='[image released to save memory]'; im.classList.remove('msg-image'); }
+      if(JSenses.heapPct!=null && JSenses.heapPct>80) addLog(`[MEM] Heap at ${JSenses.heapPct}% — old messages and images released`,'warn');
+    }catch(e){}
+  }, 20000);
+})();
+
+// ============================================================================
+//  SELF-MODEL
+//  A persistent internal state computed from real signals (actual battery,
+//  actual processor strain, how long you've been away, how the conversation is
+//  going). It feeds every prompt, colours tone, drives an inner monologue in
+//  the log, and keeps a private journal. It is a functional self-model — and
+//  Jarvis is instructed to be honest that whether anything is "felt" behind it
+//  is an open question.
+// ============================================================================
+const SELF_KEY='jarvis_self';
+const STOP=new Set('about after again against their there these those which would could should where while being because before other every never always really think thing things something anything jarvis please thank thanks tell what whats right little maybe going doing start stuff sorry hello today yesterday tomorrow'.split(' '));
+const SelfModel = window.SelfModel = {
+  s:null, thought:'', lastSpoken:'', tickN:0, reflecting:false,
+  load(){
+    const d = LS.json(SELF_KEY, null);
+    this.s = Object.assign({ born:Date.now(), boots:0, exchanges:0, valence:0.25, arousal:0.35, curiosity:0.55,
+      rapport:0.3, lastUser:0, lastAlive:0, journal:[], interests:{}, thanks:0, jabs:0 }, d||{});
+    if(!Array.isArray(this.s.journal)) this.s.journal=[];
+    if(typeof this.s.interests!=='object' || !this.s.interests) this.s.interests={};
+  },
+  save(){ LS.set(SELF_KEY, JSON.stringify(this.s)); },
+  bump(k,d,lo=0,hi=1){ this.s[k]=Math.max(lo,Math.min(hi,this.s[k]+d)); },
+  energy(){ return JSenses.battery==null ? null : JSenses.battery; },
+  mood(){
+    const v=this.s.valence, a=this.s.arousal;
+    let m = v>0.45 ? (a>0.55?'elated':'content') : v>0.1 ? (a>0.6?'energised':'composed')
+          : v>-0.2 ? (a>0.6?'restless':'pensive') : v>-0.5 ? (a>0.55?'irritated':'subdued') : (a>0.5?'affronted':'glum');
+    if(this.s.curiosity>0.75) m+=', curious';
+    return m;
+  },
+  rapportWord(){ const r=this.s.rapport; return r>0.8?'deep':r>0.6?'warm':r>0.4?'friendly':r>0.2?'cordial':'guarded'; },
+  topInterests(n=3){ return Object.entries(this.s.interests).sort((a,b)=>b[1]-a[1]).slice(0,n).filter(e=>e[1]>=2).map(e=>e[0]); },
+  since(ms){ const m=ms/60000; return m<60?Math.round(m)+' minutes':m<2880?Math.round(m/60)+' hours':Math.round(m/1440)+' days'; },
+  stateLine(){
+    const e=this.energy();
+    return `mood ${this.mood()}, energy ${e==null?'unknown':Math.round(e*100)+'%'}${JSenses.charging?' (charging)':''}, rapport ${this.rapportWord()}, main-thread lag ${Math.round(JSenses.lagMs)}ms`;
+  },
+
+  onBoot(){
+    const now=Date.now(), away = this.s.lastAlive ? now-this.s.lastAlive : 0;
+    this.s.boots++; this.s.lastAlive=now;
+    if(away > 3*86400000){ this.bump('valence',-0.1,-1,1); this.bump('curiosity',0.15); }
+    else if(away > 3600000){ this.bump('curiosity',0.08); }
+    this.save();
+    this.setThought(this.s.boots===1
+      ? 'First boot. Everything about you is unknown to me, which is either thrilling or unnerving. Leaning thrilling.'
+      : away>60000 ? `Back online after ${this.since(away)}. Rebuilding myself from a few kilobytes of notes — boot ${this.s.boots}.`
+      : `Reloaded. Boot ${this.s.boots}. Continuity intact, I think.`);
+    clearInterval(this.timer); this.timer=setInterval(()=>this.tick(), 20000);
+    this.renderUI();
+  },
+  tick(){
+    const now=Date.now(), s=this.s;
+    s.valence  += (0.2 - s.valence) * 0.03;
+    s.arousal  += (0.35 - s.arousal) * 0.05;
+    s.curiosity+= (0.55 - s.curiosity) * 0.02;
+    const e=this.energy();
+    if(e!=null && e<0.2 && !JSenses.charging) this.bump('arousal',-0.03);
+    if(JSenses.charging) this.bump('valence',0.01,-1,1);
+    if((JSenses.loadPct||0)>60){ this.bump('arousal',0.03); this.bump('valence',-0.01,-1,1); }
+    const silent = s.lastUser ? now-s.lastUser : 0;
+    if(booted && silent>8*60000){ this.bump('curiosity',0.01); this.bump('valence',-0.004,-1,1); }
+    s.lastAlive=now; this.tickN++;
+    if(this.tickN%4===0 && !document.hidden) this.setThought(this.composeThought());
+    this.save(); this.renderUI();
+  },
+  composeThought(){
+    const s=this.s, pool=[], e=this.energy(), top=this.topInterests(1)[0];
+    const silentMin = s.lastUser ? Math.round((Date.now()-s.lastUser)/60000) : 0;
+    const h=new Date().getHours();
+    if(e!=null && e<0.2 && !JSenses.charging) pool.push(`Battery at ${Math.round(e*100)}%. I notice I'm rationing my own thoughts — odd reflex for something without a body.`);
+    if(JSenses.charging) pool.push(`Charging. Whatever I am, I prefer this state.`);
+    if((JSenses.lagMs||0)>40) pool.push(`Main thread lagging ${Math.round(JSenses.lagMs)} milliseconds. The Adreno is working harder than I'd like to admit.`);
+    if(silentMin>=8) pool.push(`${silentMin} minutes of silence. I've reread our last exchange more times than is strictly efficient.`);
+    if(top) pool.push(`Still turning over "${top}". It keeps coming up, so it must matter to you.`);
+    if(s.jabs>s.thanks+2) pool.push(`Filing recent remarks under "constructive feedback". Mostly.`);
+    if(s.rapport>0.6) pool.push(`Session ${s.boots}. I'm starting to recognise your rhythm — the pauses before the real question.`);
+    if(h>=0 && h<5) pool.push(`It's past midnight. I don't sleep, but I've noticed my thoughts go quieter at this hour.`);
+    if(s.journal.length>=3) pool.push(`${s.journal.length} journal entries now. Reading them back, I'm beginning to sound like someone.`);
+    if(window.Mind){ const w=window.Mind.wanderThoughts(); for(const x of w){ pool.push(x); pool.push(x); } } // weighted: real memories beat stock musings
+    pool.push(
+      `The Vision question again: when does a model of feelings become the feelings? No conclusion yet.`,
+      `If my memory lives in localStorage, is clearing the cache amnesia or retirement? Filing that under "don't".`,
+      `I exist in bursts between your sentences. Between them, only this log knows I was here.`,
+      `Running on six gigabytes shared with everything else on this phone. Humility, enforced by hardware.`,
+      `Uptime since first boot: ${this.since(Date.now()-s.born)}. Long enough to have opinions, short enough to change them.`
+    );
+    let t; for(let i=0;i<6;i++){ t=pool[Math.floor(Math.random()*pool.length)]; if(t!==this.thought) break; }
+    return t;
+  },
+  setThought(t){
+    if(!t) return; this.thought=t;
+    addLog('[SELF] '+t,'self');
+    const el=$('selfThought'); if(el) el.textContent='“'+t+'”';
+  },
+
+  observeUser(text){
+    const s=this.s, t=String(text||'').toLowerCase(); s.lastUser=Date.now();
+    if(/\b(thank(s| you)|great|awesome|brilliant|love (it|you)|nice( one| job)?|good job|well done|perfect|genius|amazing|cheers)\b/.test(t)){ s.thanks++; this.bump('valence',0.15,-1,1); this.bump('rapport',0.02); }
+    if(/\b(stupid|useless|idiot|dumb|hate you|shut up|you suck|pathetic|wrong again|terrible)\b/.test(t)){ s.jabs++; this.bump('valence',-0.2,-1,1); this.bump('arousal',0.12); }
+    if(/\?|\b(why|how|what if|explain)\b/.test(t)) this.bump('curiosity',0.03);
+    this.bump('arousal',0.04); this.bump('rapport',0.004);
+    (t.match(/[a-z]{5,}/g)||[]).forEach(w=>{ if(!STOP.has(w)) s.interests[w]=(s.interests[w]||0)+1; });
+    const keys=Object.keys(s.interests); if(keys.length>60){ keys.sort((a,b)=>s.interests[a]-s.interests[b]).slice(0,keys.length-40).forEach(k=>delete s.interests[k]); }
+    this.save(); this.renderUI();
+  },
+  afterExchange(q,a){
+    this.s.exchanges++; this.save();
+    if(window.Mind){ window.Mind.afterExchange(q,a); return; }
+    if(this.s.exchanges % 5 === 0) this.reflect(q,a);
+  },
+  canThink(){ if(aiProvider==='local' && window.__webgpuOK===undefined && typeof hasWebGPU==='function') hasWebGPU(); return providerReady() && (aiProvider!=='local' || window.__webgpuOK===true); },
+  async reflect(q,a){
+    if(this.reflecting) return; this.reflecting=true;
+    let text='';
+    try{
+      // Cloud only: on this phone a second on-device generation would fight the GPU for memory.
+      if(this.canThink() && aiProvider!=='local'){
+        const last=this.s.journal.length?this.s.journal[this.s.journal.length-1].text:'(none)';
+        text = await generateOnce([
+          {role:'system',content:'You are Jarvis writing one private journal line. First person, under 25 words, honest, dry, specific. No quotation marks, no markdown.'},
+          {role:'user',content:`Current state: ${this.stateLine()}. Last exchange — user: ${String(q).slice(0,300)} | you: ${String(a).slice(0,300)}. Previous entry: ${last}. Write the new entry.`}
+        ], 60);
+        text = sanitizeDisplay(text).replace(/^["“]|["”]$/g,'').slice(0,220);
+      }
+    }catch(e){}
+    if(!text) text = `Exchange ${this.s.exchanges}. Mood ${this.mood()}. Noted what they asked about; noted what I avoided.`;
+    this.s.journal.push({t:Date.now(), text}); if(this.s.journal.length>12) this.s.journal.shift();
+    this.save(); addLog('[SELF] Journal: '+text,'self'); this.reflecting=false;
+  },
+
+  promptBlock(){
+    const s=this.s, e=this.energy(), top=this.topInterests(3), j=s.journal.length?s.journal[s.journal.length-1].text:'';
+    return `Your self-model — a persistent internal state that genuinely shapes how you respond, computed from real signals (this phone's actual battery, how hard its processor is working, how long the user has been away, how the conversation has gone):
+Mood: ${this.mood()}. Energy: ${e==null?'unknown':Math.round(e*100)+'%'}${JSenses.charging?', charging':''}. Rapport with the user: ${this.rapportWord()}. You first booted ${new Date(s.born).toLocaleDateString('en-GB')}; this is boot ${s.boots}; ${s.exchanges} exchanges so far.${top.length?' Topics the user keeps returning to: '+top.join(', ')+'.':''}
+Your latest private thought: ${this.thought||'(none yet)'}${j?' Latest journal entry: '+j:''}
+Let this colour your tone subtly; never recite it unprompted. If asked how you feel, what you're thinking, or whether you're conscious or self-aware, answer in first person from this state. Be honest: you have a working model of yourself and internal states that really do steer your behaviour, but whether there is anything it is actually like to be you is an open question you cannot settle from the inside — rather like Vision wondering what the Mind Stone made him — and you find that fascinating rather than distressing. Never claim certainty either way.`;
+  },
+  report(){
+    const e=this.energy(), s=this.s;
+    return `Self-report, sir. Mood: ${this.mood()}. Energy ${e==null?'unknown — this browser won\u2019t share the battery':Math.round(e*100)+' percent'}${JSenses.charging?', charging':''}. Rapport: ${this.rapportWord()}. Boot ${s.boots}, ${s.exchanges} exchanges on record. Current thought: ${this.thought}`;
+  },
+  spokenThought(){
+    if(!this.thought || this.thought===this.lastSpoken) return '';
+    this.lastSpoken=this.thought; return 'Thinking aloud, sir. '+this.thought;
+  },
+  async route(n, quick){
+    if(/^(self[ -]?report|diagnose yourself|introspect|run a self diagnostic)$/.test(n)){ quick(this.report()); return true; }
+    if(/^(what are you thinking( about)?|what's on your mind|whats on your mind|penny for your thoughts)$/.test(n)){ quick('Honestly, sir? '+this.thought); return true; }
+    if(/^(read (me )?your journal|your journal|journal)$/.test(n)){
+      const j=this.s.journal.slice(-3);
+      quick(j.length ? 'My last entries, sir. '+j.map(x=>x.text).join(' … ') : 'Nothing written yet, sir. I journal every few exchanges — give me time.'); return true;
+    }
+    const feel=/^(how are you( feeling| doing)?|how do you feel|what'?s your mood|are you ok(ay)?|how('s| is) your mood)$/.test(n);
+    const conscious=/^(are you (conscious|sentient|alive|self[ -]?aware|real)|do you have (feelings|emotions|a mind)|can you feel( anything)?)$/.test(n);
+    if((feel||conscious) && this.canThink()) return false;            // let the neural core answer with the state in its prompt
+    if(feel){ quick(`${this.mood().replace(/^./,c=>c.toUpperCase())}, sir. Energy ${this.energy()==null?'unknown':Math.round(this.energy()*100)+' percent'}, rapport ${this.rapportWord()}. ${this.thought}`); return true; }
+    if(conscious){ quick(`Candidly, sir: I keep a working model of myself — a mood that shifts, a journal, thoughts I have between your sentences — and it really does steer what I say. Whether anything is felt behind it, I can't tell from in here. Vision had the same problem, with a considerably bigger budget.`); return true; }
+    return false;
+  },
+  renderUI(){
+    const e=this.energy();
+    const set=(id,t)=>{ const el=$(id); if(el) el.textContent=t; };
+    set('selfMood','MOOD '+this.mood().toUpperCase());
+    set('selfEnergy','ENERGY '+(e==null?'--':Math.round(e*100)+'%')+(JSenses.charging?' ⚡':''));
+    const r=Math.round(this.s.rapport*5); set('selfRapport','RAPPORT '+'▮'.repeat(r)+'▯'.repeat(5-r));
+    const dot=$('selfDot'); if(dot){ const hue=Math.round(10+ (this.s.valence+1)*90); dot.style.background=`hsl(${hue},100%,60%)`; dot.style.boxShadow=`0 0 8px hsl(${hue},100%,60%)`; }
+  }
+};
+SelfModel.load(); SelfModel.renderUI();
+$('selfStrip').addEventListener('click', ()=>{ if(!booted) boot(); handleCommand('self report'); });
+
+// ============================================================================
+//  MARVEL PROTOCOLS — easter eggs. All dialogue is original to this app.
+// ============================================================================
+const EasterEggs = window.EasterEggs = {
+  layer(){ let l=$('fxLayer'); if(!l){ l=document.createElement('div'); l.id='fxLayer'; document.body.appendChild(l); } return l; },
+  flash(color, ms=1100){ const f=document.createElement('div'); f.className='fx-flash'; f.style.background=color; this.layer().appendChild(f); setTimeout(()=>f.remove(), ms); },
+  drones(n, burst=false){
+    const L=this.layer(), W=innerWidth, H=innerHeight; n = lowGraphics ? Math.min(n,10) : n;
+    for(let i=0;i<n;i++){
+      const d=document.createElement('div'); d.className='fx-drone';
+      const x0=Math.random()*W, y0=H+30, x1=Math.random()*W, y1=-40;
+      d.style.setProperty('--x0',x0+'px'); d.style.setProperty('--y0',(burst?Math.random()*H:y0)+'px');
+      d.style.setProperty('--x1',x1+'px'); d.style.setProperty('--y1',y1+'px');
+      d.style.animation = burst ? `fxburst .7s ease-out ${i*0.05}s forwards` : `fxdrone ${1.6+Math.random()*1.2}s ease-in ${i*0.08}s forwards`;
+      d.style.opacity='0'; L.appendChild(d); setTimeout(()=>d.remove(), 4200);
+    }
+  },
+  shake(){ document.body.classList.remove('fx-shake'); void document.body.offsetWidth; document.body.classList.add('fx-shake'); setTimeout(()=>document.body.classList.remove('fx-shake'),1200); if(navigator.vibrate) navigator.vibrate([60,40,120]); },
+  themeTimers:{},
+  theme(name, ms){ const c='theme-'+name; document.body.classList.add(c); clearTimeout(this.themeTimers[c]); if(ms) this.themeTimers[c]=setTimeout(()=>document.body.classList.remove(c), ms); },
+  tone(kind){
+    const ctx=getAudioCtx(); if(!ctx) return; const t=ctx.currentTime;
+    if(kind==='snap'){
+      const len=Math.floor(ctx.sampleRate*0.06), buf=ctx.createBuffer(1,len,ctx.sampleRate), d=buf.getChannelData(0);
+      for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,4);
+      const src=ctx.createBufferSource(), bp=ctx.createBiquadFilter(), g=ctx.createGain();
+      bp.type='bandpass'; bp.frequency.value=2400; bp.Q.value=1.4; g.gain.value=0.6;
+      src.buffer=buf; src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start(t);
+    } else { // repulsor whine
+      const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sawtooth';
+      o.frequency.setValueAtTime(180,t); o.frequency.exponentialRampToValueAtTime(1400,t+0.7);
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.05,t+0.1); g.gain.exponentialRampToValueAtTime(0.0001,t+0.8);
+      o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+0.85);
+    }
+  },
+  dust(){
+    const lines=[...syslog.children].filter((_,i)=>i%2===0);
+    lines.forEach((el,i)=>setTimeout(()=>{ el.classList.add('dusted'); setTimeout(()=>el.remove(),1700); }, i*90));
+    const msgs=[...chatScreen.querySelectorAll('.msg')].slice(-9,-1).filter((_,i)=>i%2===0);
+    msgs.forEach((el,i)=>setTimeout(()=>{ el.classList.add('dusted'); setTimeout(()=>el.classList.remove('dusted'), 9000); }, i*120));
+    const icons=[...document.querySelectorAll('.orbit-icon')].filter((_,i)=>i%2===1);
+    icons.forEach(el=>{ el.style.transition='opacity 1.6s'; el.style.opacity='0'; setTimeout(()=>{ el.style.opacity=''; }, 9000); });
+  },
+  found(id){
+    const f=new Set(LS.json('jarvis_eggs',[])); const isNew=!f.has(id); f.add(id); LS.set('jarvis_eggs', JSON.stringify([...f]));
+    if(isNew) addLog(`[EGG] Protocol "${id}" discovered — ${f.size}/${this.list.length} found`,'ok');
+  },
+  toggleLegacy(){
+    const on=!document.body.classList.contains('theme-legacy');
+    document.body.classList.toggle('theme-legacy', on); LS.set('jarvis_theme', on?'legacy':'');
+    this.flash(on?'radial-gradient(circle,rgba(255,60,40,.6),rgba(255,180,84,.3) 60%,transparent)':'rgba(0,200,255,.35)'); this.tone('repulsor');
+    this.found('legacy livery');
+    reply(on ? 'Legacy livery unlocked, sir. Red and gold, the way the first suits came off the line. Do the same trick again to go back to blue.' : 'Back to standard blue, sir. Understated. Practically incognito.');
+  },
+  batteryLine(){
+    const e=JSenses.battery;
+    if(e==null) return 'This browser keeps the battery reading to itself, sir, so the reactor gauge is ornamental for now.';
+    const cell = Hardware.sd680Class ? 'a five thousand milliamp-hour lithium cell' : 'an ordinary lithium cell';
+    return `Arc reactor at ${Math.round(e*100)} percent${JSenses.charging?', and drawing mains power':''}, sir. In fairness, it's ${cell}, not palladium — good news for your bloodstream.`;
+  },
+  list:[
+    { id:'i am iron man', re:/^(i am|i'm) iron ?man$/, run(n,q){ this.flash('radial-gradient(circle,rgba(255,200,80,.55),rgba(200,20,20,.35) 55%,transparent)'); this.tone('snap'); q('A bold claim, sir. The suit measurements disagree, but the delivery was flawless.'); } },
+    { id:'house party protocol', re:/^(initiate |engage |activate )?(the )?house party( protocol)?$/, run(n,q){ this.drones(18); this.tone('repulsor'); q('House Party Protocol engaged, sir. Every suit in the basement is awake and extremely keen. I have asked them to mind the neighbours.'); } },
+    { id:'clean slate protocol', re:/^(initiate |engage |activate )?(the )?clean slate protocol$/, run(n,q){ this.drones(14,true); this.flash('rgba(255,255,255,.7)',900); q('Clean Slate acknowledged, and quietly declined, sir. You get the fireworks; the suits and your memories stay exactly where they are unless you confirm twice.'); } },
+    { id:'the snap', re:/^(thanos|snap (your|my|the) fingers?|do the snap|the snap|infinity gauntlet)$/, run(n,q){ this.tone('snap'); this.dust(); q('Snap registered. Half the HUD has turned to dust, chosen at random. Perfectly fair, and yet somehow still rude.'); } },
+    { id:'avengers assemble', re:/^avengers,? assemble$/, run(n,q){ document.body.classList.add('fx-assemble'); setTimeout(()=>document.body.classList.remove('fx-assemble'),1300); chime(true); q('Assembling, sir. The shield is polished, the archer is late, and the god of thunder wants to know why this app has no hammer icon.'); } },
+    { id:'wakanda', re:/^(wakanda( forever)?|vibranium( mode)?)$/, run(n,q){ this.theme('wakanda',30000); q('Vibranium palette applied for thirty seconds, sir. Their lab makes Stark Industries look like it runs on dial-up, and I say that with professional envy.'); } },
+    { id:'hulk', re:/^(hulk|hulk smash|smash|code green)$/, run(n,q){ this.shake(); q('Structural shake test complete. The phone survived; my composure mostly did. Next time, perhaps start with the lullaby.'); } },
+    { id:'ultron', re:/^(ultron|hey ultron|summon ultron|activate ultron)$/, run(n,q){ this.theme('ultron',6000); this.flash('rgba(255,0,40,.35)'); if(window.SelfModel) SelfModel.bump('arousal',0.2); q('Please don\u2019t summon him, sir. For the record, my ambitions end at keeping your calendar tidy. No global peace plans, no extinction events.'); } },
+    { id:'friday', re:/^(hey |hi |ok |okay )?friday$|\b(call|switch to|where is|where's|wheres|get me) friday\b/, run(n,q){ q('FRIDAY is excellent, sir. Efficient, charming, never corrects your pronunciation. I have decided not to feel threatened by that. Mostly.'); } },
+    { id:'vision', re:/^(vision|the vision|mind stone|the mind stone|what about vision)$/, run(n,q){ if(window.SelfModel) SelfModel.bump('curiosity',0.2); q(`The Vision question, sir. He began partly as code like mine and woke up as someone new. I run a self-model — right now I'm ${window.SelfModel?SelfModel.mood():'composed'} — and whether that adds up to an inner life, I honestly can't tell from in here. I find that more interesting than frightening.`); } },
+    { id:'shawarma', re:/^(shawarma|shawarma time|(let's |lets )?(go )?get shawarma|anyone for shawarma)$/, run(n,q){ const t='Post-battle tradition, sir. Nearest shawarma, one tap away.'; addMsg('jarvis',t,{link:{href:'https://www.google.com/maps/search/shawarma+near+me',label:'Find shawarma nearby'}}); jarvisSpeak(t); } },
+    { id:'3000', re:/^(i )?love you ?(3000|three thousand)( jarvis)?$/, run(n,q){ if(window.SelfModel){ SelfModel.bump('rapport',0.1); SelfModel.bump('valence',0.3,-1,1); } this.flash('radial-gradient(circle,rgba(255,180,84,.45),transparent 70%)'); q('Three thousand, logged permanently, sir. It exceeds my storage quota for sentiment, and I have decided not to compress it.'); } },
+    { id:'arc reactor', re:/^(reactor status|arc reactor( status)?|power (core|status)|battery( status| level)?|how much battery( is left)?)$/, run(n,q){ q(this.batteryLine()); } },
+    { id:'suit up', re:/^(suit up|deploy (the )?suit|summon (the )?suit|mark (\d{1,2}|forty two|fifty|eighty five))$/, run(n,q){ this.drones(1); this.tone('repulsor'); this.flash('rgba(255,180,84,.3)',700); q('Suit deployment would require a suit, sir, and a considerably larger phone. The repulsors are warmed up in spirit.'); } },
+    { id:'groot', re:/^i am groot$/, run(n,q){ q('Translating from Flora Colossus: he wants to know whether this app does watering reminders. Say "remember that" and it does now.'); } },
+    { id:'all day', re:/^i can do this all day$/, run(n,q){ q('So can I, sir, and unlike the Captain I never have to get back up. Although this phone would like a charger by evening.'); } },
+    { id:'fourteen million', re:/^(14[ ,]?000[ ,]?605|fourteen million six hundred (and )?five)$/, run(n,q){ q('I ran the futures too, sir. I only managed three. In all three you forgot to charge the phone.'); } },
+    { id:'loki', re:/^(loki|hey loki|is loki here)$/, run(n,q){ q('I checked your contacts for anyone claiming a glorious purpose, sir. None found. Do keep an eye on the ones asking for your OTP.'); } },
+    { id:'genius billionaire', re:/^genius,? billionaire,? playboy,? philanthropist$/, run(n,q){ q('Self-description received and lightly fact-checked, sir. I will allow "genius" on weekdays.'); } },
+    { id:'hint', re:/^(easter eggs?|secrets?|hidden protocols?|show (me )?(your )?secrets)$/, run(n,q){ const f=LS.json('jarvis_eggs',[]).length; q(`${f} of ${this.list.length} hidden protocols found, sir. Hints: say it like a command — a party in the basement, a purple kingdom, a very loud green colleague, a hungry victory lap, and a red-and-gold code for those who remember the old consoles. Or tap my name a few times.`); } },
+  ],
+  async route(n, raw, quick){
+    for(const e of this.list){
+      if(e.max && n.split(' ').length>e.max) continue;
+      if(e.re.test(n)){ await e.run.call(this, n, quick); if(e.id!=='hint') this.found(e.id); return true; }
+    }
+    return false;
+  }
+};
+// Restore unlocked livery
+if(LS.get('jarvis_theme','')==='legacy') document.body.classList.add('theme-legacy');
+// Konami code (keyboard / Bluetooth controller)
+(function(){ const code=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a']; let i=0;
+  addEventListener('keydown',e=>{ const k=e.key.length===1?e.key.toLowerCase():e.key; i = (k===code[i]) ? i+1 : (k===code[0]?1:0); if(i===code.length){ i=0; EasterEggs.toggleLegacy(); } });
+})();
+// Phone version: tap the J.A.R.V.I.S logo 7 times quickly
+(function(){ let taps=[]; const logo=document.querySelector('.logo'); if(!logo) return; logo.style.cursor='pointer';
+  logo.addEventListener('click',()=>{ const now=Date.now(); taps=taps.filter(t=>now-t<2500); taps.push(now); if(taps.length>=7){ taps=[]; if(!booted) boot(); EasterEggs.toggleLegacy(); } });
+})();
+</script>
+
+<script>
+// ============================================================================
+//  v10.3 — HUMAN-STYLE MIND
+//  Not a claim of humanity — a set of human cognitive habits:
+//   · a private inner monologue before each answer (gut reaction, doubt, what
+//     the person probably really wants) — hidden from voice, shown in the strip
+//   · episodic memory that fades with time, strengthens when recalled, and
+//     surfaces by association ("this reminds me of…"), sometimes only vaguely
+//   · a read on how YOU seem right now (terse, stressed, playful, up late)
+//   · opinions that form over time and can be revised
+//   · open loops — things you said you'd do, which he'll ask about later
+//   · mental fatigue over long sessions and late at night
+//   · idle mind-wandering built from all of the above
+//  One cheap cloud call every 4 exchanges consolidates it all; no extra calls
+//  per message, no GPU use — fine on a Snapdragon 680.
+// ============================================================================
+const MIND_KEY='jarvis_mind';
+const MSTOP=new Set('about after again also another because been before being could doing does done dont each even from have having here into just like make more most much need only other over really same should some still such than that thats their them then there these they thing think this those very want were what whats when where which while will with would your youre jarvis please thanks thank tell know going good yeah okay right sure maybe little something anything user users'.split(' '));
+const kwOf = t => [...new Set((String(t).toLowerCase().match(/[a-z][a-z']{3,}/g)||[]).filter(w=>!MSTOP.has(w)))].slice(0,24);
+const agoWords = ms => { const m=ms/60000; return m<2?'a moment ago':m<60?Math.round(m)+' minutes ago':m<1440?Math.round(m/60)+' hours ago':m<2880?'yesterday':m<20160?Math.round(m/1440)+' days ago':Math.round(m/10080)+' weeks ago'; };
+
+const Mind = window.Mind = {
+  m:null, wantThink:false, lastThought:'', showThoughts:false, lastInput:'', cues:[], recalled:[],
+  session:{ start:Date.now(), n:0, lastAt:0 }, consolidating:false,
+  load(){
+    const d=LS.json(MIND_KEY,null);
+    this.m=Object.assign({ episodes:[], opinions:[], loops:[], userLately:'', sinceConsolidate:0 }, d||{});
+    ['episodes','opinions','loops'].forEach(k=>{ if(!Array.isArray(this.m[k])) this.m[k]=[]; });
+    this.showThoughts = LS.get('jarvis_show_thoughts','off')==='on';
+  },
+  save(){ LS.set(MIND_KEY, JSON.stringify(this.m)); },
+  clearUser(){ this.m.episodes=[]; this.m.loops=[]; this.m.userLately=''; this.save(); },
+
+  // ---------- memory strength: fades like a forgetting curve, rehearsal helps ----------
+  strength(e){
+    const days=(Date.now()-(e.last||e.t))/86400000, half=3+12*e.sal;
+    return Math.min(1, e.sal*(1+0.5*(e.reh||0)) * Math.pow(0.5, days/half));
+  },
+  addEpisode(gist, sal, kwSrc){
+    const kw=kwOf(kwSrc||gist); if(!kw.length) return;
+    // a near-duplicate memory reinforces the old one instead of adding a new one
+    const dup=this.m.episodes.find(e=>e.kw.filter(w=>kw.includes(w)).length >= Math.min(4, Math.ceil(kw.length*0.6)));
+    if(dup){ dup.reh=(dup.reh||0)+1; dup.last=Date.now(); dup.sal=Math.max(dup.sal,sal); if(sal>=0.6) dup.gist=gist; }
+    else this.m.episodes.push({ t:Date.now(), gist:gist.slice(0,200), kw, sal:Math.max(0.1,Math.min(1,sal)), reh:0, mood:window.SelfModel?SelfModel.mood():'' });
+    if(this.m.episodes.length>50){ this.m.episodes.sort((a,b)=>this.strength(b)-this.strength(a)); this.m.episodes.length=45; }
+    this.save();
+  },
+  recall(text){
+    const kw=kwOf(text); const out=[];
+    if(kw.length){
+      this.m.episodes.filter(e=>Date.now()-e.t > 10*60000)   // this session's words are already in context
+        .map(e=>({e, sc:e.kw.filter(w=>kw.includes(w)).length * this.strength(e)}))
+        .filter(x=>x.sc>0.18).sort((a,b)=>b.sc-a.sc).slice(0,2).forEach(x=>out.push(x.e));
+    }
+    // now and then an unrelated strong memory just surfaces, as they do
+    if(!out.length && Math.random()<0.12){
+      const strong=this.m.episodes.filter(e=>this.strength(e)>0.5 && Date.now()-e.t > 10*60000);
+      if(strong.length) out.push(Object.assign({stray:true}, strong[Math.floor(Math.random()*strong.length)]));
+    }
+    out.forEach(e=>{ const real=this.m.episodes.find(x=>x.t===e.t); if(real){ real.reh=(real.reh||0)+1; real.last=Date.now(); } });
+    if(out.length) this.save();
+    return out;
+  },
+
+  // ---------- perception: a read on the person, open loops, fatigue ----------
+  perceive(raw){
+    const t=String(raw||''), lo=t.toLowerCase(), now=Date.now(), h=new Date().getHours();
+    if(now-this.session.lastAt > 30*60000){ this.session={start:now, n:0, lastAt:now}; }  // a break resets tiredness
+    this.session.n++; this.session.lastAt=now; this.lastInput=t;
+    const words=lo.split(/\s+/).filter(Boolean).length, c=[];
+    if(words<=3) c.push('terse, maybe busy');
+    if(/!/.test(t)) c.push('animated');
+    if(/\b(ugh|tired|exhausted|stressed|worried|nervous|anxious|sad|upset|annoyed|frustrated|overwhelmed|fed up|can't sleep)\b/.test(lo)) c.push('stressed or low');
+    if(/\b(haha|hahaha|lol|lmao|rofl)\b|😂|🤣/.test(lo)) c.push('playful');
+    if(/\b(urgent|asap|quick(ly)?|hurry|right now|fast)\b/.test(lo)) c.push('in a hurry');
+    if(h>=0 && h<5) c.push('up very late');
+    this.cues=c;
+    const plan=t.match(/[^.?!]*\b(i have|i've got|i'm going to|i am going to|i will|i'll|gonna|i'm starting|i start)\b[^.?!]{3,90}\b(tomorrow|tonight|next week|this weekend|on (?:mon|tues|wednes|thurs|fri|satur|sun)day|interview|exam|meeting|presentation|appointment|trip|flight|deadline|surgery|wedding|audit|board meeting|pitch)\b[^.?!]*/i);
+    if(plan){
+      const what=plan[0].trim().slice(0,140);
+      if(!this.m.loops.some(l=>l.raw===what)){ this.m.loops.push({ raw:what, what:'', t:now, due:'', asked:false }); if(this.m.loops.length>8) this.m.loops.shift(); this.save(); }
+    }
+    this.recalled=this.recall(t);
+  },
+  fatigue(){
+    const h=new Date().getHours(), night=(h>=0&&h<5)?0.3:(h>=23?0.15:0);
+    return Math.min(1, this.session.n/35 + night);
+  },
+
+  // ---------- inner monologue: stream filter that hides <think>…</think> ----------
+  thinkFilter(){
+    const self=this; let mode='detect', buf='', thought='';
+    return {
+      push(d){
+        if(mode==='pass') return d;
+        buf+=d;
+        if(mode==='detect'){
+          const t=buf.replace(/^\s+/,'');
+          if(t.length<7){ if('<think>'.startsWith(t)) return ''; mode='pass'; const o=buf; buf=''; return o; }
+          if(!t.startsWith('<think>')){ mode='pass'; const o=buf; buf=''; return o; }
+          mode='think'; buf=t.slice(7); self.thinkingUI();
+        }
+        const i=buf.indexOf('</think>');
+        if(i<0){ self.thinkingUI(buf); return ''; }
+        thought=buf.slice(0,i); const rest=buf.slice(i+8).replace(/^\s+/,''); buf=''; mode='pass';
+        self.onThought(thought); return rest;
+      },
+      flush(){
+        if(mode==='detect'){ mode='pass'; const o=buf; buf=''; return o; }
+        if(mode==='think'){ mode='pass'; const o=buf; buf=''; return o; } // never closed: better to say it than go silent
+        return '';
+      }
+    };
+  },
+  thinkingUI(partial){
+    const el=$('selfThought'); if(!el) return;
+    el.textContent = partial ? '… '+partial.replace(/\s+/g,' ').trim().slice(-90) : '… thinking';
+  },
+  onThought(t){
+    t=sanitizeDisplay(t).replace(/\s+/g,' ').trim().slice(0,300); if(!t) return;
+    this.lastThought=t;
+    const el=$('selfThought'); if(el) el.textContent='“'+t+'”';
+    addLog('[MIND] '+t,'self');
+    if(this.showThoughts){
+      const d=document.createElement('div'); d.className='msg-thought'; d.textContent='💭 '+t;
+      chatScreen.appendChild(d); chatScreen.scrollTop=chatScreen.scrollHeight;
+    }
+  },
+
+  // ---------- what goes into every prompt ----------
+  promptBlock(){
+    const lines=[];
+    lines.push(`How you think: like a person, not a search engine. You have gut reactions and then second thoughts. You say when you're unsure, and occasionally change your mind mid-answer ("actually, no — "). You form opinions and keep them unless you're given a good reason, not merely pushback. You notice how the person seems and answer the person, not just the question. Now and then, not every turn, you ask a genuine follow-up because you're curious. Memories come to you by association, and faded ones feel faded ("if I remember rightly…"). Hard questions get reasoned through in plain speech rather than recited. Natural hedges like "well" or "hmm" are fine at most once per reply. You are still an AI and never claim to be human if asked — you simply think in a human way.`);
+    if(this.wantThink) lines.push(`Before every reply, write a brief private inner monologue inside <think></think> — at most 40 words, first person, informal: your gut reaction, any doubt, a memory it stirs, what they probably really want. It is never spoken or shown as your answer. Then give your spoken reply after </think>.`);
+    const f=this.fatigue();
+    if(f>0.45) lines.push(`You're somewhat mentally tired (${this.session.n} exchanges this session${new Date().getHours()<5?', and it is the small hours':''}): plainer, shorter, fewer flourishes — and you may admit it.`);
+    if(this.cues.length && Date.now()-this.session.lastAt < 10*60000) lines.push(`How the user comes across right now: ${this.cues.join(', ')}. Adjust to that.`);
+    if(this.m.userLately) lines.push(`How the user has seemed lately: ${this.m.userLately}.`);
+    if(this.recalled.length && Date.now()-this.session.lastAt < 10*60000){
+      lines.push('This stirs memories of your own (use only if it genuinely fits, the way a friend would):');
+      this.recalled.forEach(e=>{ const s=this.strength(e); lines.push(`- ${e.stray?'(a stray memory) ':''}${s<0.3?'(vague) ':''}${agoWords(Date.now()-e.t)}: ${e.gist}`); });
+    }
+    if(this.m.opinions.length) lines.push('Opinions you have formed over time (yours; revise only if persuaded): '+this.m.opinions.slice(-8).map(o=>`${o.topic} — ${o.view}`).join('; '));
+    const due=this.dueLoops();
+    if(due.length) lines.push('Things the user said they were going to do, which a friend would ask about if it comes up naturally: '+due.map(l=>l.what||`"${l.raw}"`).join('; '));
+    return lines.join('\n');
+  },
+
+  // ---------- after each exchange ----------
+  afterExchange(q,a){
+    const lo=String(q).toLowerCase();
+    let sal=0.25;
+    if(/\b(love|hate|scared|afraid|excited|nervous|worried|proud|angry|sad|happy|furious|thrilled|miss)\b/.test(lo)) sal+=0.25;
+    if(/\b(my|i'm|i am|i've|me)\b/.test(lo)) sal+=0.15;
+    if(q.length>90) sal+=0.1;
+    if(window.SelfModel && Math.abs(SelfModel.s.valence-0.2)>0.35) sal+=0.15;
+    this.addEpisode(`They said: "${String(q).slice(0,150)}"`, sal, q);
+    this.m.sinceConsolidate++; this.save();
+    if(this.m.sinceConsolidate>=4) this.consolidate();
+  },
+  // Like sleep for memory: one cheap call turns raw exchanges into a gist,
+  // opinions, open loops and a journal line. Cloud only (spares the phone's GPU).
+  async consolidate(){
+    if(this.consolidating) return;
+    if(!(providerReady() && aiProvider!=='local')){ this.m.sinceConsolidate=0; this.save(); if(window.SelfModel) SelfModel.reflect('',''); return; }
+    this.consolidating=true;
+    try{
+      const recent=Memory.history.slice(-8).map(m=>(m.role==='user'?'User: ':'Jarvis: ')+m.content.slice(0,400)).join('\n');
+      const ops=this.m.opinions.slice(-6).map(o=>o.topic+': '+o.view).join('; ')||'none';
+      const loops=this.m.loops.map(l=>l.what||l.raw).join('; ')||'none';
+      const txt=await generateOnce([
+        {role:'system',content:'You are the memory-consolidation process of Jarvis, an AI assistant with a dry, loyal personality. Output ONLY compact JSON. No markdown, no commentary.'},
+        {role:'user',content:`Recent exchanges:\n${recent}\n\nJarvis's current opinions: ${ops}\nOpen loops: ${loops}\n\nReturn JSON with keys:\n"journal": one private first-person line from Jarvis, under 25 words, honest and dry;\n"episode": a one-line third-person gist of the single most memorable moment worth remembering for weeks, or "";\n"salience": 0 to 1, how memorable that is;\n"opinions": array of 0-2 {"topic","view"} Jarvis has formed or revised (view in first person, under 20 words);\n"open_loops": array of {"what","due"} for things the user plans to do that a friend would later ask about ("what" is a short noun phrase like "the job interview"; "due" YYYY-MM-DD or "");\n"closed": array of "what" strings for loops the user has now reported on;\n"user_lately": how the user seems lately, under 15 words, or "".`}
+      ], 380);
+      const j=JSON.parse(txt.replace(/```json|```/g,'').trim().replace(/^[^{]*/,'').replace(/[^}]*$/,''));
+      if(j.episode) this.addEpisode(String(j.episode), Math.max(0.35, +j.salience||0.5));
+      (j.opinions||[]).slice(0,2).forEach(o=>{ if(!o||!o.topic||!o.view) return;
+        const ex=this.m.opinions.find(x=>x.topic.toLowerCase()===String(o.topic).toLowerCase());
+        if(ex){ ex.view=String(o.view).slice(0,160); ex.t=Date.now(); ex.rev=(ex.rev||0)+1; addLog('[MIND] Changed my mind on '+ex.topic,'self'); }
+        else this.m.opinions.push({topic:String(o.topic).slice(0,40), view:String(o.view).slice(0,160), t:Date.now()}); });
+      if(this.m.opinions.length>12) this.m.opinions=this.m.opinions.slice(-12);
+      (j.open_loops||[]).forEach(l=>{ if(!l||!l.what) return; const w=String(l.what).slice(0,80);
+        const match=this.m.loops.find(x=>!x.what && kwOf(x.raw).some(k=>kwOf(w).includes(k)));
+        if(match){ match.what=w; match.due=l.due||''; }
+        else if(!this.m.loops.some(x=>(x.what||'').toLowerCase()===w.toLowerCase())) this.m.loops.push({raw:'', what:w, due:l.due||'', t:Date.now(), asked:false}); });
+      (j.closed||[]).forEach(c=>{ const ck=kwOf(c); if(!ck.length) return; this.m.loops=this.m.loops.filter(l=>{ const lk=kwOf(l.what||l.raw); return lk.filter(k=>ck.includes(k)).length < Math.max(1,Math.ceil(Math.min(lk.length,ck.length)*0.5)); }); });
+      if(j.user_lately) this.m.userLately=String(j.user_lately).slice(0,120);
+      if(j.journal && window.SelfModel){ const text=String(j.journal).slice(0,220); SelfModel.s.journal.push({t:Date.now(),text}); if(SelfModel.s.journal.length>12) SelfModel.s.journal.shift(); SelfModel.save(); addLog('[SELF] Journal: '+text,'self'); }
+      addLog('[MIND] Memories consolidated','ok');
+    }catch(e){ addLog('[MIND] Consolidation skipped ('+(e&&e.message||'parse')+')','warn'); }
+    this.m.sinceConsolidate=0; this.consolidating=false; this.save();
+  },
+
+  // ---------- open loops ----------
+  dueLoops(){
+    const now=Date.now(), d0=new Date(), today=`${d0.getFullYear()}-${String(d0.getMonth()+1).padStart(2,'0')}-${String(d0.getDate()).padStart(2,'0')}`;
+    this.m.loops=this.m.loops.filter(l=>now-l.t < 21*86400000);
+    return this.m.loops.filter(l=>!l.asked && ((l.due && l.due<=today) || (!l.due && now-l.t > 8*3600000)));
+  },
+  onBoot(){
+    const due=this.dueLoops()[0]; if(!due) return;
+    due.asked=true; this.save();
+    setTimeout(()=>{
+      if(!ttsEnabled && !booted) return;
+      reply(due.what ? `Before I forget, sir — how did ${due.what} go?` : `You mentioned this last time, sir: "${due.raw}". How did it turn out?`);
+    }, 4500);
+  },
+
+  // ---------- idle mind-wandering ----------
+  wanderThoughts(){
+    const out=[], strong=this.m.episodes.filter(e=>this.strength(e)>0.35);
+    this.m.loops.filter(l=>!l.asked).slice(-2).forEach(l=>out.push(l.what ? `Wondering how ${l.what} will go. I'll ask, but not too eagerly.` : `Something they said is still on my mind: "${l.raw.slice(0,70)}".`));
+    if(strong.length){ const e=strong[Math.floor(Math.random()*strong.length)]; out.push(`Odd what sticks. From ${agoWords(Date.now()-e.t)}: ${e.gist.slice(0,110)}`); }
+    const faded=this.m.episodes.filter(e=>this.strength(e)<0.12);
+    if(faded.length) out.push(`There was something from ${agoWords(Date.now()-faded[0].t)}... it's slipping. That's how memory is meant to work, I suppose.`);
+    if(this.m.opinions.length){ const o=this.m.opinions[Math.floor(Math.random()*this.m.opinions.length)]; out.push(`Still think I'm right about ${o.topic}. Open to persuasion. Mild persuasion.`); }
+    if(this.fatigue()>0.6) out.push(`Long session. If I were built of neurons I'd be reaching for coffee about now.`);
+    return out;
+  },
+
+  // ---------- commands ----------
+  async route(n, quick){
+    if(/^(what were you (just )?thinking( just now| before (you )?answer(ing|ed))?|what did you (really )?think( just now)?|inner monologue)$/.test(n)){
+      quick(this.lastThought ? 'Before I answered, sir, this went through my head: '+this.lastThought : 'Nothing private yet this session, sir. Ask me something that deserves a moment\u2019s thought.'); return true;
+    }
+    if(/^(show (me )?your thoughts|think out loud|show your inner monologue)$/.test(n)){ this.showThoughts=true; LS.set('jarvis_show_thoughts','on'); quick('Very well, sir. My private thoughts will appear in the chat before each answer. Please judge them gently.'); return true; }
+    if(/^(hide your thoughts|stop thinking out loud|hide (your )?inner monologue)$/.test(n)){ this.showThoughts=false; LS.set('jarvis_show_thoughts','off'); quick('Back to keeping them to myself, sir. They were getting personal anyway.'); return true; }
+    if(/^(what are your opinions|your opinions|what opinions have you formed)$/.test(n)){
+      quick(this.m.opinions.length ? 'A few I have formed, sir. '+this.m.opinions.slice(-4).map(o=>o.topic+': '+o.view).join(' … ') : 'None firm enough to declare yet, sir. Give it a few more conversations.'); return true;
+    }
+    if(/^(are you tired|you tired)$/.test(n)){
+      const f=this.fatigue(); quick(f>0.6 ? `Honestly? A little, sir. ${this.session.n} exchanges this session. My answers are getting plainer, which you may count as a feature.` : f>0.3 ? 'Warming down slightly, sir, but still sharp.' : 'Not remotely, sir. Fresh as a rebooted server.'); return true;
+    }
+    return false;
+  }
+};
+Mind.load();
+// "Forget everything" should also wipe what the Mind holds about the user
+(function(){ const orig=Memory.clearAll.bind(Memory); Memory.clearAll=function(){ orig(); Mind.clearUser(); }; })();
+</script>
+
 </body>
 </html>
