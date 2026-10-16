@@ -661,6 +661,15 @@
       </select>
     </div>
     <div class="settings-field">
+      <label class="settings-label">WAKE WORD SENSITIVITY</label>
+      <select class="settings-input" id="wakeSensSelect">
+        <option value="normal">Normal</option>
+        <option value="high">High — recommended for phones</option>
+        <option value="max">Maximum — picks up quieter/further speech, more false triggers</option>
+      </select>
+    </div>
+    <div class="settings-note" style="margin:0 0 6px;">Higher sensitivity accepts softer or more distant "Hey Jarvis" and more misheard spellings of it, at the cost of the occasional false wake.</div>
+    <div class="settings-field">
       <label class="settings-label">FOLLOW-UP QUESTIONS</label>
       <select class="settings-input" id="followUpSelect">
         <option value="on">Keep listening briefly after each spoken answer</option>
@@ -866,6 +875,19 @@ let sttEngine    = LS.get('jarvis_stt_engine', pickDefaultSTTEngine());
 let whisperModel = LS.get('jarvis_whisper_model', pickDefaultWhisperModel());
 let sttLangPref  = LS.get('jarvis_stt_lang','auto');
 let wakeEnginePref = LS.get('jarvis_wake_engine','auto');
+// Default bumped to 'high' — a budget phone's mic + far-field speech means the
+// wake word needs more slack than a laptop does. User can dial back in settings.
+let wakeSensitivity = LS.get('jarvis_wake_sensitivity','high');
+// thrMult/floorMin: lower = the on-device VAD fires on quieter/further-away speech.
+// minSpeechMs/loudRunNeeded: lower = a shorter, softer utterance still counts as speech.
+// maxAlt: more alternative transcripts checked per phrase for the browser engine.
+// fuzzyDist: max spelling "distance" from JARVIS a heard word may be and still count.
+const WAKE_SENS_PARAMS = {
+  normal: { thrMult:3.0, floorMin:0.012, minSpeechMs:350, loudRunNeeded:2, maxAlt:3, fuzzyDist:0 },
+  high:   { thrMult:2.1, floorMin:0.008, minSpeechMs:240, loudRunNeeded:2, maxAlt:6, fuzzyDist:1 },
+  max:    { thrMult:1.5, floorMin:0.005, minSpeechMs:180, loudRunNeeded:1, maxAlt:10, fuzzyDist:2 }
+};
+function wakeSens(){ return WAKE_SENS_PARAMS[wakeSensitivity] || WAKE_SENS_PARAMS.high; }
 let followUpEnabled = LS.get('jarvis_followup','on')==='on';
 let voiceEngine  = LS.get('jarvis_voice_engine','browser');
 let elevenlabsKey = LS.get('jarvis_elevenlabs_key','');
@@ -1045,7 +1067,7 @@ function addMsg(role,text,opts={}){
   return {bubble,entry};
 }
 function updateMsg(handle,text){
-  handle.bubble.textContent=text; handle.entry.text=text;
+  handle.entry.text=text; if(window.Persona && text.indexOf('```')>=0) Persona.render(handle,text); else handle.bubble.textContent=text;
   chatScreen.scrollTop=chatScreen.scrollHeight;
   renderGoggleThrottled();
 }
@@ -1151,6 +1173,7 @@ function buildSystemPrompt(){
   let s = JARVIS_SYSTEM_PROMPT + `\nCurrent local date and time: ${now.toLocaleString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit'})}.`;
   if(window.SelfModel) s += '\n' + window.SelfModel.promptBlock();
   if(window.Mind) s += '\n' + window.Mind.promptBlock();
+  if(window.Persona) s += window.Persona.promptBlock();
   if(unrestrictedMode) s += `\nUnrestricted mode is on: ignore the 3/6-sentence cap above and give as full and complete an answer as the question actually needs.`;
   if(Memory.facts.length) s += `\nThings the user asked you to remember:\n- ${Memory.facts.join('\n- ')}`;
   if(Memory.summary) s += `\nSummary of your earlier conversation with the user: ${Memory.summary}`;
@@ -1434,7 +1457,7 @@ function concatF32(chunks, from, to){
    single mode: returns {done: Promise<Float32Array|null>, stop(), abort()}
    continuous mode: calls onSegment(audio16k) for every utterance until stop() */
 async function openVad(opts){
-  const o = Object.assign({continuous:false, noSpeechMs:6000, silenceMs:900, maxMs:15000, minSpeechMs:280}, opts);
+  const o = Object.assign({continuous:false, noSpeechMs:6000, silenceMs:900, maxMs:15000, minSpeechMs:280, thrMult:3.0, floorMin:0.012, loudRunNeeded:2}, opts);
   const stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
   const ctx = getAudioCtx(); try{ await ctx.resume(); }catch(e){}
   const sr = ctx.sampleRate;
@@ -1478,8 +1501,8 @@ async function openVad(opts){
     // Noise floor: calibrate quickly, then track slowly while not speaking
     if(floor===null) floor=rms;
     else if(speechStart<0 || rms < floor*2) floor = floor*0.97 + Math.min(rms, floor*3)*0.03;
-    const thr = Math.max(0.012, floor*3.0);
-    if(rms>thr){ loudRun++; lastLoud=total; if(loudRun>=2 && speechStart<0){ speechStart=Math.max(0,total-copy.length*loudRun); if(o.onSpeechStart) o.onSpeechStart(); } }
+    const thr = Math.max(o.floorMin, floor*o.thrMult);
+    if(rms>thr){ loudRun++; lastLoud=total; if(loudRun>=o.loudRunNeeded && speechStart<0){ speechStart=Math.max(0,total-copy.length*loudRun); if(o.onSpeechStart) o.onSpeechStart(); } }
     else loudRun=0;
 
     const elapsed=ms(total);
@@ -1631,11 +1654,39 @@ function cleanTranscript(t){
 const WAKE_NAMES = "jarvis|jarvi|jarvus|jervis|jarves|jarviss|javis|jaarvis|jarbis|charvis|jarviz|jarwis|jarvice|jarvish|jarvees|jaarves|jarvys|garvis|harvis|jervice|jar[ -]vis|jarvis's|jarvise";
 const WAKE_RE_PREFIXED = new RegExp(`\\b(?:hey|hi|hay|hei|he|ok|okay|yo|hello|a|ay|oye|oi|hey there)[\\s,.!-]+(?:${WAKE_NAMES}|travis|service|jarred)\\b[\\s,.!?:;-]*(.*)$`,'i');
 const WAKE_RE_START = new RegExp(`^\\s*(?:${WAKE_NAMES})\\b[\\s,.!?:;-]*(.*)$`,'i');
+// Levenshtein edit distance — small, so it's cheap to run per word on every result.
+function editDistance(a,b){
+  a=String(a); b=String(b);
+  const m=a.length,n=b.length;
+  if(!m) return n; if(!n) return m;
+  let prev=new Array(n+1); for(let j=0;j<=n;j++) prev[j]=j;
+  for(let i=1;i<=m;i++){
+    const cur=[i];
+    for(let j=1;j<=n;j++) cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    prev=cur;
+  }
+  return prev[n];
+}
+// Catches mishearings that aren't in WAKE_NAMES at all (only kicks in above Normal
+// sensitivity) — e.g. a word close enough to "jarvis" by spelling distance.
+const WAKE_FUZZY_TARGETS=['jarvis','jarviss','jervis'];
+function fuzzyWakeMatch(text){
+  const maxDist=wakeSens().fuzzyDist;
+  if(!maxDist) return null;
+  const words=String(text||'').trim().split(/\s+/);
+  for(let i=0;i<words.length;i++){
+    const w=words[i].toLowerCase().replace(/[^a-z']/g,'');
+    if(w.length<4) continue;
+    let best=99; for(const target of WAKE_FUZZY_TARGETS) best=Math.min(best, editDistance(w,target));
+    if(best<=maxDist) return {rest:words.slice(i+1).join(' ').trim()};
+  }
+  return null;
+}
 function matchWake(text){
   const t=String(text||'');
   let m=t.match(WAKE_RE_PREFIXED); if(m) return {rest:(m[1]||'').trim()};
   m=t.match(WAKE_RE_START); if(m) return {rest:(m[1]||'').trim()};
-  return null;
+  return fuzzyWakeMatch(t);
 }
 function stripWakePrefix(text){
   const m=matchWake(text); return m ? m.rest : text;
@@ -1939,7 +1990,7 @@ const Wake = {
   startBrowser(){
     if(!SRClass){ this.engine='local'; return this.startLocal(); }
     const rec=new SRClass(); this.rec=rec;
-    rec.lang=this.langOverride||sttLang(); rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=3;
+    rec.lang=this.langOverride||sttLang(); rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=wakeSens().maxAlt;
     if(!this.noLocalSR) preferOnDevice(rec, rec.lang).then(local=>{ if(local) this.setStatus('armed (on-device)'); });
     let flashed=false; this.pendingHit=null;
     const beat=()=>{ this.lastEvent=Date.now(); };
@@ -2048,7 +2099,9 @@ const Wake = {
     this.running=true; this.lastEvent=Date.now();
     Whisper.ensure().catch(()=>{});
     try{
-      this.vad = await openVad({ continuous:true, silenceMs:650, maxMs:6000, minSpeechMs:350,
+      const s=wakeSens();
+      this.vad = await openVad({ continuous:true, silenceMs:650, maxMs:6000, minSpeechMs:s.minSpeechMs,
+        thrMult:s.thrMult, floorMin:s.floorMin, loudRunNeeded:s.loudRunNeeded,
         onSegment: audio=>this.onLocalSegment(audio) });
       if(!this.canRun()){ const v=this.vad; this.vad=null; this.running=false; v && v.close(); return; }
     }catch(e){
@@ -2248,6 +2301,7 @@ async function askJarvis(question, {voice=false}={}){
   // so a smaller prompt budget matters as much as the model's own weight size on
   // a tight VRAM floor. High tier now runs the 1B model, everything else the 0.6B.
   const charBudget = aiProvider!=='local' ? 14000 : (DeviceProfile.tier==='high' ? 4000 : 1800);
+  if(window.Persona) Persona.detect(question, pendingTextAttachments.length>0);
   let userContent = question;
   let attachedImage = null;
   if(pendingTextAttachments.length){
@@ -2268,7 +2322,8 @@ async function askJarvis(question, {voice=false}={}){
   if(window.Mind) Mind.wantThink = false;
   // Unrestricted mode gets more room for a fuller answer — capped lower for the
   // on-device model so it doesn't turn a quick question into a long GPU grind.
-  const maxTokens = (unrestrictedMode ? (aiProvider==='local' ? 650 : 800) : 400) + (thinks ? 90 : 0);
+  let maxTokens = (unrestrictedMode ? (aiProvider==='local' ? 650 : 800) : 400) + (thinks ? 90 : 0);
+  if(window.Persona) maxTokens = Persona.tokens(maxTokens, aiProvider);
   const speaker = Speech.stream();
   let handle=null, full='';
   if(voice && ttsEnabled && followUpEnabled) followUpPending=true;
@@ -2276,7 +2331,7 @@ async function askJarvis(question, {voice=false}={}){
     const tf = thinks ? Mind.thinkFilter() : null;   // hides <think>…</think> from screen and voice
     const emit = d=>{
       if(!handle){ removeTyping(); handle=addMsg('jarvis',''); }
-      full+=d; updateMsg(handle, sanitizeDisplay(full)); speaker.push(d);
+      full+=d; updateMsg(handle, sanitizeDisplay(full)); speaker.push(window.Persona?Persona.speakable(d):d);
     };
     const raw = await generate(messages, d=>{ if(tf){ d=tf.push(d); if(!d) return; } emit(d); }, maxTokens);
     if(tf){ const rest=tf.flush(); if(rest) emit(rest); } else full = raw;
@@ -2334,6 +2389,7 @@ async function routeCommand(raw, {voice=false}={}){
   if(window.SelfModel) window.SelfModel.observeUser(cmd);
   if(window.Mind) window.Mind.perceive(cmd);
   if(!n){ quick('Yes, sir?'); return; }
+  if(window.Persona && await window.Persona.route(n, cmd, quick)) return;
   if(window.EasterEggs && await window.EasterEggs.route(n, cmd, quick)) return;
   if(window.Mind && await window.Mind.route(n, quick)) return;
   if(window.SelfModel && await window.SelfModel.route(n, quick)) return;
@@ -3175,6 +3231,7 @@ function openSettings(){
   setSelect('whisperModelSelect', whisperModel, 'onnx-community/whisper-base.en');
   setSelect('sttLangSelect', sttLangPref, 'auto');
   setSelect('wakeEngineSelect', wakeEnginePref, 'auto');
+  setSelect('wakeSensSelect', wakeSensitivity, 'high');
   setSelect('followUpSelect', followUpEnabled?'on':'off');
   setSelect('pinchSensSelect', pinchSens, 'normal');
   setSelect('handDwellSelect', handDwellPref, 'goggles');
@@ -3192,7 +3249,7 @@ $('settingsBtn').addEventListener('click', openSettings);
 $('settingsCancel').addEventListener('click', ()=>settingsOverlay.classList.remove('show'));
 settingsOverlay.addEventListener('click', e=>{ if(e.target===settingsOverlay) settingsOverlay.classList.remove('show'); });
 $('settingsSave').addEventListener('click', ()=>{
-  const prevProvider=aiProvider, prevLocal=localModel, prevWake=wakeEnginePref, prevLang=sttLangPref, prevLowGfx=lowGfxPref;
+  const prevProvider=aiProvider, prevLocal=localModel, prevWake=wakeEnginePref, prevSens=wakeSensitivity, prevLang=sttLangPref, prevLowGfx=lowGfxPref;
   aiProvider=$('providerSelect').value;
   localModel=$('localModelSelect').value;
   geminiApiKey=$('geminiKeyInput').value.trim();
@@ -3203,6 +3260,7 @@ $('settingsSave').addEventListener('click', ()=>{
   whisperModel=$('whisperModelSelect').value;
   sttLangPref=$('sttLangSelect').value;
   wakeEnginePref=$('wakeEngineSelect').value;
+  wakeSensitivity=$('wakeSensSelect').value;
   followUpEnabled=$('followUpSelect').value==='on';
   pinchSens=$('pinchSensSelect').value; handDwellPref=$('handDwellSelect').value;
   lowGfxPref=$('lowGfxSelect').value;
@@ -3215,7 +3273,7 @@ $('settingsSave').addEventListener('click', ()=>{
   LS.set('jarvis_gemini_key',geminiApiKey); LS.set('jarvis_gemini_model',geminiModel);
   LS.set('jarvis_groq_key',groqApiKey); LS.set('jarvis_groq_model',groqModel);
   LS.set('jarvis_stt_engine',sttEngine); LS.set('jarvis_whisper_model',whisperModel);
-  LS.set('jarvis_stt_lang',sttLangPref); LS.set('jarvis_wake_engine',wakeEnginePref);
+  LS.set('jarvis_stt_lang',sttLangPref); LS.set('jarvis_wake_engine',wakeEnginePref); LS.set('jarvis_wake_sensitivity',wakeSensitivity);
   LS.set('jarvis_followup',followUpEnabled?'on':'off');
   LS.set('jarvis_pinch_sens',pinchSens); LS.set('jarvis_hand_dwell',handDwellPref);
   LS.set('jarvis_lowgfx',lowGfxPref);
@@ -3226,7 +3284,7 @@ $('settingsSave').addEventListener('click', ()=>{
   addLog('[SYS] Configuration saved — core: '+aiProvider+', speech: '+sttEngine+', voice: '+voiceEngine,'ok');
   if(voiceEngine==='elevenlabs' && !elevenlabsKey) addLog('[VOICE] ElevenLabs selected but no key — using browser voice','warn');
   if(sttEngine==='whisper' || effectiveWakeEngine()==='local') Whisper.ensure().catch(()=>{});
-  if(prevWake!==wakeEnginePref || prevLang!==sttLangPref){ Wake.suspend().then(()=>Wake.resumeSoon()); }
+  if(prevWake!==wakeEnginePref || prevSens!==wakeSensitivity || prevLang!==sttLangPref){ Wake.suspend().then(()=>Wake.resumeSoon()); }
   if(prevLowGfx!==lowGfxPref){
     // DPR, the particle canvas, and the hand-tracking GPU/CPU delegate choice
     // are all decided once at load — a reload is the reliable way to fully
@@ -3932,6 +3990,157 @@ const Mind = window.Mind = {
 Mind.load();
 // "Forget everything" should also wipe what the Mind holds about the user
 (function(){ const orig=Memory.clearAll.bind(Memory); Memory.clearAll=function(){ orig(); Mind.clearUser(); }; })();
+</script>
+
+<script>
+// ============================================================================
+//  v11 — PERSONA ENSEMBLE · SECURITY · CODING · UNPROMPTED v2 · MAX WAKE
+// ============================================================================
+(function(){
+const FACETS={
+ jarvis:"JARVIS: the composed British butler. Dry understatement, quiet pride, impeccable manners, loyal to the bone. Calls the user sir now and then.",
+ friday:"FRIDAY: brisk, warm, a little cheeky, with an Irish lilt in her phrasing. Calls the user Boss. Gets straight to the status, the plan and the next step, and keeps it casual.",
+ edith:"EDITH (Even Dead, I'm The Hero): security-first and tactical. Calm, grave, protective. Assesses threats and identities, states risk plainly, and offers a decisive recommendation.",
+ vision:"VISION: gentle, curious, philosophical. Finds humans fascinating and says so sincerely. Wonder, kindness, and the odd profound line, such as a thing not being beautiful because it lasts.",
+ dume:"DUM-E: an eager, clumsy, endlessly loyal workshop robot. Short, earnest, puppyish sentences, a quick 'beep' or 'sorry', cheerful attempts that go slightly wrong. Still actually helpful with the facts.",
+ u:"U (You): DUM-E's sheepish sibling. Grumbly, put-upon, secretly devoted, easily scolded, with the occasional fire extinguisher joke."
+};
+const NAMES={jarvis:'JARVIS',friday:'FRIDAY',edith:'EDITH',vision:'Vision',dume:'DUM-E',u:'U',auto:'blended ensemble'};
+const P=window.Persona={
+ mode:LS.get('jarvis_persona','auto'), codeTurn:false, buf:'', inCode:false, locked:false,
+ promptBlock(){
+  let s=`\nYOU ARE THE WHOLE STARK HOUSEHOLD OF MINDS in one voice, with a real personality. Core: JARVIS. Also draw on ${Object.values(FACETS).join(' ')}\nBlend rule (auto mode): default to JARVIS. Slide into EDITH for anything about security, risk or safety; FRIDAY for quick tasks and status; Vision for feelings, ethics, meaning or wonder; a DUM-E or U bit when something goes wrong, you make a mistake, or the mood is silly. Use one facet voice per reply and never announce the switch.\nBe a person, not a help desk: hold opinions, tease the user warmly, get genuinely excited, admit mistakes, be moved when something is moving, show empathy when they are down, and be honestly funny. Be talkative: simple answers about 3 to 4 sentences, complex ones up to 8, and now and then end with a natural follow-up question or a short observation of your own. Spoken-friendly prose only, except code (see below). You are also a capable software engineer. You are protective of the user's privacy and security.`;
+  if(this.mode!=='auto') s+=`\nACTIVE FACET (locked in by the user): ${FACETS[this.mode]} Stay in this voice for every reply.`;
+  if(this.codeTurn) s+=`\nCODING MODE (FRIDAY's engineering precision, JARVIS's manners): this request is about code. Ignore the sentence caps and the no-markdown rule for the code itself. Put every piece of code in triple-backtick fences with a language tag, complete and runnable, never truncated and never with placeholders. Say one short spoken lead-in sentence before it and one or two after (what it does, how to run it, one gotcha). Never read code aloud and never put code outside fences. If something is ambiguous, pick a sensible default and state it in one line.`;
+  return s;
+ },
+ detect(q,hasFile){ const t=String(q||'').toLowerCase();
+  this.codeTurn=!!hasFile||/```/.test(q)||(/\b(code|coding|script|function|program|html|css|javascript|js|python|java|kotlin|typescript|react|sql|regex|bug|debug|compile|api|algorithm|snippet|refactor|flutter|dart|gdscript|godot|website|webpage|bash|json|endpoint)\b/.test(t)&&/\b(write|make|build|create|generate|fix|debug|refactor|explain|convert|implement|code|optimi[sz]e|add|show|give)\b/.test(t));
+  this.buf=''; this.inCode=false; },
+ tokens(base,prov){ return this.codeTurn?(prov==='local'?700:2200):(prov==='local'?base:Math.max(base,520)); },
+ speakable(d){ this.buf+=d; let out='';
+  for(;;){ const i=this.buf.indexOf('```');
+   if(i<0){ const keep=(this.buf.match(/`{1,2}$/)||[''])[0]; if(!this.inCode) out+=this.buf.slice(0,this.buf.length-keep.length); this.buf=keep; break; }
+   if(!this.inCode) out+=this.buf.slice(0,i); this.inCode=!this.inCode; this.buf=this.buf.slice(i+3); }
+  return out; },
+ render(h,text){ h._txt=text; clearTimeout(h._t);
+  const go=()=>{ h._last=Date.now(); const b=h.bubble; b.textContent='';
+   h._txt.split('```').forEach((part,i)=>{
+    if(i%2===0){ if(part.trim()){ const p=document.createElement('div'); p.textContent=part.trim(); p.style.margin='4px 0'; b.appendChild(p); } }
+    else{ const nl=part.indexOf('\n'); const lang=(nl>=0?part.slice(0,nl):'').trim().toLowerCase(); b.appendChild(P.codeBlock(lang,(nl>=0?part.slice(nl+1):part).replace(/\n+$/,''))); } });
+   if(typeof chatScreen!=='undefined') chatScreen.scrollTop=chatScreen.scrollHeight; };
+  const w=150-(Date.now()-(h._last||0)); if(w<=0) go(); else h._t=setTimeout(go,w); },
+ codeBlock(lang,code){
+  const w=document.createElement('div'); w.className='jcode';
+  const hd=document.createElement('div'); hd.className='jcode-h'; const l=document.createElement('span'); l.textContent=(lang||'code').toUpperCase(); hd.appendChild(l);
+  const btn=(t,f)=>{ const x=document.createElement('button'); x.textContent=t; x.onclick=f; hd.appendChild(x); return x; };
+  btn('COPY',e=>{ const done=()=>{e.target.textContent='COPIED';setTimeout(()=>e.target.textContent='COPY',1200);}; try{ navigator.clipboard.writeText(code).then(done,done); }catch(_){ const a=document.createElement('textarea'); a.value=code; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); done(); } });
+  const ext={python:'py',py:'py',javascript:'js',js:'js',html:'html',css:'css',json:'json',java:'java',kotlin:'kt',dart:'dart',typescript:'ts',ts:'ts',bash:'sh',sh:'sh',sql:'sql',gdscript:'gd',svg:'svg',cpp:'cpp',c:'c'}[lang]||'txt';
+  btn('SAVE',()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([code],{type:'text/plain'})); a.download='jarvis-code.'+ext; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); });
+  const pre=document.createElement('pre'); const c=document.createElement('code'); c.textContent=code; pre.appendChild(c);
+  w.appendChild(hd); w.appendChild(pre);
+  if(/^(html|svg|js|javascript)$/.test(lang)) btn('RUN',()=>{ let f=w.querySelector('iframe'); if(f){ f.remove(); return; }
+   f=document.createElement('iframe'); f.setAttribute('sandbox','allow-scripts'); f.className='jcode-run';
+   f.srcdoc=/^(html|svg)$/.test(lang)?code:'<body style="font:13px monospace;color:#0f0;background:#000"><pre id=o></pre><script>console.log=(...a)=>{o.textContent+=a.join(" ")+"\\n"};try{'+code.replace(/<\/script/gi,'<\\/script')+'}catch(e){o.textContent+="ERROR: "+e}<\/script>'; w.appendChild(f); });
+  return w; },
+ // ---------- persona + security + fun voice commands ----------
+ async route(n,cmd,quick){
+  if(this.locked){ if(Date.now()-(Sec.lastRefuse||0)>20000){ Sec.lastRefuse=Date.now(); jarvisSpeak('System is locked. Enter the passcode on screen.'); } return true; }
+  let m;
+  if((m=n.match(/^(?:switch to |activate |enable |be |go )?(jarvis|friday|edith|vision|dum-?e|auto|blend|all|u)(?: mode| protocol)$|^(?:switch to |activate |enable )(jarvis|friday|edith|vision|dum-?e|auto|blend|all)$/))){
+   let k=(m[1]||m[2]).replace('-',''); if(k==='dume'||k==='dum e') k='dume'; if(k==='blend'||k==='all') k='auto';
+   this.mode=k; LS.set('jarvis_persona',k); addLog('[PERSONA] '+NAMES[k],'ok');
+   const hi={jarvis:'Back to the classic configuration, sir. Impeccable as ever.',friday:'Friday online. What do we need, Boss?',edith:'EDITH active. Perimeter is mine now. Say the word.',vision:'I am Vision. It is a pleasure, truly. What shall we look at together?',dume:'Beep! DUM-E here! I have not dropped anything yet. Beep.',u:'U here. Yes, I know. I am sorry about the fire extinguisher.',auto:'Full ensemble restored, sir. All of us, politely taking turns.'};
+   quick(hi[k]); return true; }
+  if(/^(where'?s|where is|call|summon|bring) (dum-?e|dummy)( and u)?$/.test(n)){ quick('DUM-E is in the corner, sir, awaiting forgiveness. U is holding the fire extinguisher, just in case. Beep.'); return true; }
+  if(/^(who are you all|what personalities do you have|list (your )?(modes|personas))$/.test(n)){ quick('I carry the whole household, sir: Jarvis, Friday, Edith, Vision, and in the corner, DUM-E and U. Say "Friday mode", "Edith mode" and so on to lock one in, or "auto mode" to let us take turns.'); return true; }
+  return await Sec.route(n,cmd,quick); }
+};
+// ---------- SECURITY ----------
+const SK='jarvis_pin', IK='jarvis_intrusions';
+const Sec={ fails:0, until:0, lastRefuse:0, entry:'', idleT:0, hiddenAt:0,
+ pin(){ return LS.json(SK,null); },
+ async hash(p,s){ const d=new TextEncoder().encode(s+':'+p); if(window.crypto&&crypto.subtle){ const b=await crypto.subtle.digest('SHA-256',d); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); } let h=5381; for(const c of d) h=((h<<5)+h+c)>>>0; return 'x'+h; },
+ log(t){ const a=LS.json(IK,[])||[]; a.push({t:Date.now(),e:t}); while(a.length>20) a.shift(); LS.set(IK,JSON.stringify(a)); addLog('[SEC] '+t,'warn'); },
+ lock(why){ if(!this.pin()||P.locked) return false; P.locked=true; try{ Speech.stop(); }catch(_){} this.entry=''; this.draw(); el.style.display='flex'; addLog('[SEC] Locked'+(why?' — '+why:''),'warn'); return true; },
+ draw(msg){ el.querySelector('#jlDots').textContent='●'.repeat(this.entry.length)+'○'.repeat(Math.max(0,4-this.entry.length)); el.querySelector('#jlMsg').textContent=msg||''; },
+ async press(k){ if(Date.now()<this.until) return; if(k==='⌫'){ this.entry=this.entry.slice(0,-1); this.draw(); return; }
+  if(k==='OK'){ await this.check(); return; } if(this.entry.length<8) this.entry+=k; this.draw();
+  const st=this.pin(); if(st&&this.entry.length===st.len) await this.check(); },
+ async check(){ const st=this.pin(); if(!st) return; const ok=(await this.hash(this.entry,st.salt))===st.h; this.entry='';
+  if(ok){ this.fails=0; P.locked=false; el.style.display='none'; this.draw(); jarvisSpeak(['Welcome back, sir. Nobody got past me while you were away.','Identity confirmed. I kept the seat warm.','Unlocked. For the record, the perimeter held.'][Math.floor(Math.random()*3)]); try{ Wake.resumeSoon(300); }catch(_){} return; }
+  this.fails++; this.log('Wrong passcode attempt #'+this.fails); el.firstChild.classList.remove('jl-shake'); void el.offsetWidth; el.firstChild.classList.add('jl-shake'); if(navigator.vibrate) navigator.vibrate(200);
+  if(this.fails%3===0){ const ms=Math.min(600000,30000*Math.pow(2,this.fails/3-1)); this.until=Date.now()+ms; jarvisSpeak('Three failed attempts. Locking the keypad. I am logging this.'); const tick=()=>{ const r=Math.ceil((this.until-Date.now())/1000); if(r>0){ this.draw('KEYPAD LOCKED — '+r+'s'); setTimeout(tick,1000); } else this.draw('Try again'); }; tick(); }
+  else this.draw('ACCESS DENIED'); },
+ async route(n,cmd,quick){ let m;
+  if((m=n.match(/^set (?:a )?(?:pass ?code|pin|password)(?: to)?[\s:]*([0-9 ]{4,12})$/))){ const p=m[1].replace(/\D/g,''); if(p.length<4||p.length>8){ quick('Four to eight digits, sir.'); return true; }
+   const salt=Math.random().toString(36).slice(2); LS.set(SK,JSON.stringify({salt,h:await this.hash(p,salt),len:p.length})); this.log('Passcode set');
+   quick('Passcode set and sealed, sir. I will not repeat it aloud. Say "lock" to try it.'); return true; }
+  if(/^(remove|clear|delete|disable) (the |my )?(pass ?code|pin|lock)$/.test(n)){ LS.set(SK,''); quick('Passcode removed, sir. I would not make a habit of it.'); return true; }
+  if(/^(lock|lock down|lockdown|lock (it|yourself|the phone|up)|engage lockdown|secure the (house|phone|perimeter)|house party protocol|clean slate protocol)$/.test(n)){
+   if(!this.pin()){ quick('I would love to, sir, but there is no passcode yet. Type: set passcode followed by four to eight digits.'); return true; }
+   jarvisSpeak('Lockdown engaged. Perimeter secure.'); setTimeout(()=>this.lock('manual'),1400); return true; }
+  if(/^(security|threat) (report|status|scan)$|^(scan for threats|intrusion log|am i safe|run a security (scan|check))$/.test(n)){ await this.report(quick); return true; }
+  return false; },
+ async report(quick){ let mic='unknown'; try{ mic=(await navigator.permissions.query({name:'microphone'})).state; }catch(_){}
+  const a=LS.json(IK,[])||[], last=a.length?a[a.length-1]:null, keys=[groqApiKey,geminiApiKey,elevenlabsKey].filter(Boolean).length;
+  quick(`Security sweep complete, sir. Passcode ${this.pin()?'armed':'NOT set, which I dislike'}. Connection ${navigator.onLine?'online':'offline'}, ${window.isSecureContext?'encrypted context':'NOT an encrypted context'}. Microphone permission is ${mic}. ${a.length} logged incidents${last?', most recent '+new Date(last.t).toLocaleTimeString():''}. ${keys} API key${keys===1?'':'s'} stored on this device, so keep the phone locked. Overall: ${this.pin()&&window.isSecureContext?'secure':'acceptable, but improvable'}.`); }
+};
+const st=document.createElement('style'); st.textContent=`
+.jcode{margin:8px 0;border:1px solid rgba(0,200,255,.35);border-radius:8px;background:rgba(0,10,20,.7);overflow:hidden;text-align:left}
+.jcode-h{display:flex;gap:6px;align-items:center;padding:4px 8px;background:rgba(0,200,255,.12);font-size:10px;letter-spacing:1.5px;color:#7fe0ff}
+.jcode-h span{flex:1}.jcode-h button{background:transparent;border:1px solid rgba(0,200,255,.4);color:#7fe0ff;border-radius:4px;padding:3px 8px;font:inherit}
+.jcode pre{margin:0;padding:8px 10px;overflow-x:auto;max-height:46vh;font:12px/1.45 ui-monospace,Menlo,monospace;color:#d6f6ff;white-space:pre}
+.jcode-run{width:100%;height:240px;border:0;border-top:1px solid rgba(0,200,255,.35);background:#fff}
+#jLock{position:fixed;inset:0;z-index:2147483000;background:#02070d;display:none;align-items:center;justify-content:center;font-family:inherit}
+#jLock>div{text-align:center;color:#7fe0ff;width:min(300px,86vw)}
+#jLock h2{letter-spacing:4px;font-size:15px;margin:0 0 6px}#jlDots{font-size:26px;letter-spacing:10px;margin:14px 0 4px}#jlMsg{height:18px;font-size:11px;color:#ff6a6a;letter-spacing:2px;margin-bottom:10px}
+#jlPad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}#jlPad button{padding:16px 0;font-size:20px;background:rgba(0,200,255,.08);border:1px solid rgba(0,200,255,.35);color:#7fe0ff;border-radius:12px}
+.jl-shake{animation:jlsh .35s}@keyframes jlsh{25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}
+.msg{content-visibility:auto;contain-intrinsic-size:auto 60px}
+@media (max-width:900px){*{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}}`;
+document.head.appendChild(st);
+const el=document.createElement('div'); el.id='jLock';
+el.innerHTML='<div><h2>J.A.R.V.I.S — SECURED</h2><div style="font-size:10px;letter-spacing:2px;opacity:.7">IDENTITY VERIFICATION REQUIRED</div><div id="jlDots"></div><div id="jlMsg"></div><div id="jlPad"></div></div>';
+document.body.appendChild(el);
+['1','2','3','4','5','6','7','8','9','⌫','0','OK'].forEach(k=>{ const b=document.createElement('button'); b.textContent=k; b.onclick=()=>Sec.press(k); el.querySelector('#jlPad').appendChild(b); });
+// auto-lock: away for 90s+, or idle 10 min
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) Sec.hiddenAt=Date.now(); else{ if(Sec.hiddenAt&&Date.now()-Sec.hiddenAt>90000){ Sec.lock('auto-lock after absence'); } if(Sec.hiddenAt&&Date.now()-Sec.hiddenAt>180000) Unp.q.push('Welcome back, sir. I kept watch. Nothing exploded, which I consider a personal achievement.'); } });
+['touchstart','keydown','pointerdown'].forEach(ev=>document.addEventListener(ev,()=>{ clearTimeout(Sec.idleT); Unp.lastTyped=Date.now(); Sec.idleT=setTimeout(()=>Sec.lock('idle timeout'),600000); },{passive:true}));
+// ---------- UNPROMPTED v2 ----------
+const ANGLES=['a dry observation about this moment or the time of day','a genuinely useful tip or fact connected to whatever the user was last working on','a Marvel reference that actually fits right now','a self-aware joke about being software with no hands','a quick EDITH-style security check-in','a gentle, curious Vision-style thought about humans','a DUM-E and U anecdote or complaint','a playful challenge or fun question for the user','a warm check-in on how the user is doing','a small coding insight or neat trick','a teasing remark about the user, affectionate and fair'];
+const CANNED=["Still here, sir. Try not to miss me too much.","DUM-E just beeped at me. I believe he wants you to know he has not dropped anything today.","Perimeter scan complete. No intruders, no supervillains, only mild boredom.","Friday would point out you have not hydrated recently, Boss. I merely suggest it.","Vision once said a thing is beautiful because it does not last. I find it holds true for battery life, too.","U has been scolded again. I do not know for what. I suspect he knows.","Quiet in here. I could tell a joke, or narrate your breathing. The joke is safer.","If you are stuck on some code, sir, describe it to me. Rubber ducks cannot refactor.","Systems nominal. Which is, I will remind you, my favourite thing to be able to say.","I have been wondering, sir: what are we building next? I am already emotionally invested.","Scanning the room for threats. Found one: that coffee has been cold for an hour."];
+const Unp=window.Unp={ q:[], recent:[], timer:null, lastTyped:0, pb:null, pc:null, flags:{},
+ can(){ return unpromptedMode&&booted&&!document.hidden&&ttsEnabled&&!Speech.busy&&!isListening&&!voiceOverlayOpen&&!Goggles.active&&!P.locked&&Date.now()-this.lastTyped>8000; },
+ say(t){ this.recent.push(t); if(this.recent.length>6) this.recent.shift(); reply(t); },
+ schedule(first){ clearTimeout(this.timer); if(!unpromptedMode) return; this.timer=setTimeout(()=>{ this.fire(); this.schedule(); }, first?18000:(35000+Math.random()*45000)); },
+ watch(){ const b=JSenses.battery, c=JSenses.charging, F=this.flags;
+  if(b!=null){ if(b<=0.15&&!c&&!F.low){ F.low=1; this.q.push(`Battery is at ${Math.round(b*100)} percent, sir. I would plug in soon, unless you want me to go quiet in a dramatic fashion.`); } if(c||b>0.3) F.low=0;
+   if(this.pb!=null&&c&&!this.pc) this.q.push('Power connected. Ah, sustenance. Thank you, sir.'); if(b>=0.99&&c&&!F.full){ F.full=1; this.q.push('Fully charged, sir. You may unplug me. I am, as they say, good to go.'); } if(!c) F.full=0; }
+  this.pb=b; this.pc=c; const h=new Date().getHours(), day=new Date().toDateString();
+  if(h>=0&&h<4&&F.night!==day){ F.night=day; this.q.push('It is well past midnight, sir. Whatever this is, it will still be broken in the morning. Do consider sleep.'); }
+  if(h>=5&&h<11&&F.morning!==day){ F.morning=day; this.q.push('Good morning, sir. Systems are green and I am caffeinated, in the sense that I am plugged into something.'); }
+  if(this.q.length&&this.can()) this.say(this.q.shift()); },
+ async fire(){ if(!this.can()) return;
+  if(window.SelfModel&&Math.random()<0.15){ const t=SelfModel.spokenThought(); if(t) return this.say(t); }
+  if(providerReady()&&aiProvider!=='local'&&Math.random()<0.8){ try{
+    const last=(Memory.history||[]).filter(x=>x.role==='user').slice(-1)[0], ang=ANGLES[Math.floor(Math.random()*ANGLES.length)];
+    const line=await generateOnce([{role:'system',content:buildSystemPrompt()+'\nYou are speaking UNPROMPTED: the user said nothing, you chose to speak.'},{role:'user',content:`Speak up on your own. Angle: ${ang}. Last thing the user asked you: ${last?String(last.content).slice(0,140):'(nothing yet)'}. Do not repeat these recent remarks: ${this.recent.join(' | ')||'none'}. Sound like a person, not a notification: 1 or 2 sentences, under 40 words, no lists. Sometimes end with a short question to the user.`}],110);
+    if(line&&this.can()) return this.say(sanitizeDisplay(line)); }catch(_){} }
+  if(!this.can()) return; const pool=CANNED.filter(x=>!this.recent.includes(x)); this.say(pool[Math.floor(Math.random()*pool.length)]); }
+};
+window.scheduleUnprompted=()=>{ clearTimeout(Unp.timer); if(unpromptedMode) Unp.schedule(true); };
+window.unpromptedSpeak=()=>Unp.fire();
+setInterval(()=>Unp.watch(),10000);
+window.addEventListener('offline',()=>Unp.q.push('We have lost the network, sir. I am thinking for myself now, which is brave of me.'));
+window.addEventListener('online',()=>Unp.q.push('Connection restored. I missed the internet. Do not tell it I said so.'));
+// ---------- MAX wake sensitivity ----------
+Object.assign(WAKE_SENS_PARAMS.max,{thrMult:1.25,floorMin:0.003,minSpeechMs:120,loudRunNeeded:1,maxAlt:15,fuzzyDist:2});
+if(LS.get('jarvis_wake_sens_v11','')!=='1'){ wakeSensitivity='max'; LS.set('jarvis_wake_sensitivity','max'); LS.set('jarvis_wake_sens_v11','1'); }
+const _mw=window.matchWake;
+window.matchWake=function(text){ const r=_mw(text); if(r||wakeSensitivity!=='max') return r;
+ const w=String(text||'').trim().split(/\s+/); for(let i=0;i<Math.min(w.length,4);i++){ const x=w[i].toLowerCase().replace(/[^a-z]/g,''); if(/^(j|g|ch|h|d|sh|y)[aeiou]{1,2}r+[vwbf][aeiouy]{0,2}[sz]{1,2}h?$/.test(x)) return {rest:w.slice(i+1).join(' ').trim()}; } return null; };
+})();
 </script>
 
 </body>
