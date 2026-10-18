@@ -338,7 +338,7 @@
 <div class="topbar">
   <div class="logo-group">
     <div class="logo">J.A.R.V.I.S</div>
-    <div class="logo-sub">JUST A RATHER VERY INTELLIGENT SYSTEM // v10.5 MK-XLII</div>
+    <div class="logo-sub">JUST A RATHER VERY INTELLIGENT SYSTEM // v11.1 MK-XLII</div>
   </div>
   <div class="status-row">
     <div class="status-item"><div class="dot"></div><span>ONLINE</span></div>
@@ -768,6 +768,10 @@ const LS = {
   json(k, d){ try{ const v = JSON.parse(localStorage.getItem(k)); return v===null||v===undefined ? d : v; }catch(e){ return d; } }
 };
 
+// Promise-safe wrapper: some WebViews/older WebKit return undefined from play(),
+// requestFullscreen(), release() etc. — chaining .catch on that would throw.
+const safeP = f => { try{ return Promise.resolve(f()).catch(()=>{}); }catch(e){ return Promise.resolve(); } };
+
 let ttsEnabled = true;
 let speechRate = 0.95;
 let speechPitch = 0.9;
@@ -1005,9 +1009,9 @@ function updateMetrics(){
       : pct>60 ? 'linear-gradient(90deg,rgba(255,160,40,0.5),#ffa040)'
       : 'linear-gradient(90deg,rgba(0,200,255,0.5),var(--hud))';
   });
-  $('powerPct').textContent = (RS && RS.battery!=null) ? Math.round(RS.battery*100)+'%' : (92+Math.floor(Math.random()*6))+'%';
+  $('powerPct').textContent = (RS && RS.battery!=null) ? Math.round(RS.battery*100)+'%' : '--%';
 }
-updateMetrics(); setInterval(updateMetrics, 400);
+updateMetrics(); setInterval(updateMetrics, DeviceProfile.tier==='low' ? 1000 : 400); // 1s on weak phones: fewer layout passes
 
 const logMsgs=['[NET] Packet routing nominal','[AI] Context window optimised','[SEC] Perimeter scan clean','[SYS] Garbage collection complete','[MEM] Swap stable','[CPU] Thermal nominal'];
 let logIdx=0;
@@ -1067,7 +1071,7 @@ function addMsg(role,text,opts={}){
   return {bubble,entry};
 }
 function updateMsg(handle,text){
-  handle.entry.text=text; if(window.Persona && text.indexOf('```')>=0) Persona.render(handle,text); else handle.bubble.textContent=text;
+  handle.entry.text=text; if(window.Persona && text.indexOf('```')>=0) window.Persona.render(handle,text); else handle.bubble.textContent=text;
   chatScreen.scrollTop=chatScreen.scrollHeight;
   renderGoggleThrottled();
 }
@@ -1197,7 +1201,7 @@ function buildSystemPrompt(){
 let audioCtx=null;
 function getAudioCtx(){
   if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC) audioCtx=new AC(); }
-  if(audioCtx && audioCtx.state==='suspended') audioCtx.resume().catch(()=>{});
+  if(audioCtx && audioCtx.state==='suspended') safeP(()=>audioCtx.resume());
   return audioCtx;
 }
 function chime(up=true){
@@ -2301,7 +2305,7 @@ async function askJarvis(question, {voice=false}={}){
   // so a smaller prompt budget matters as much as the model's own weight size on
   // a tight VRAM floor. High tier now runs the 1B model, everything else the 0.6B.
   const charBudget = aiProvider!=='local' ? 14000 : (DeviceProfile.tier==='high' ? 4000 : 1800);
-  if(window.Persona) Persona.detect(question, pendingTextAttachments.length>0);
+  if(window.Persona) window.Persona.detect(question, pendingTextAttachments.length>0);
   let userContent = question;
   let attachedImage = null;
   if(pendingTextAttachments.length){
@@ -2323,7 +2327,7 @@ async function askJarvis(question, {voice=false}={}){
   // Unrestricted mode gets more room for a fuller answer — capped lower for the
   // on-device model so it doesn't turn a quick question into a long GPU grind.
   let maxTokens = (unrestrictedMode ? (aiProvider==='local' ? 650 : 800) : 400) + (thinks ? 90 : 0);
-  if(window.Persona) maxTokens = Persona.tokens(maxTokens, aiProvider);
+  if(window.Persona) maxTokens = window.Persona.tokens(maxTokens, aiProvider);
   const speaker = Speech.stream();
   let handle=null, full='';
   if(voice && ttsEnabled && followUpEnabled) followUpPending=true;
@@ -2331,7 +2335,7 @@ async function askJarvis(question, {voice=false}={}){
     const tf = thinks ? Mind.thinkFilter() : null;   // hides <think>…</think> from screen and voice
     const emit = d=>{
       if(!handle){ removeTyping(); handle=addMsg('jarvis',''); }
-      full+=d; updateMsg(handle, sanitizeDisplay(full)); speaker.push(window.Persona?Persona.speakable(d):d);
+      full+=d; updateMsg(handle, sanitizeDisplay(full)); speaker.push(window.Persona?window.Persona.speakable(d):d);
     };
     const raw = await generate(messages, d=>{ if(tf){ d=tf.push(d); if(!d) return; } emit(d); }, maxTokens);
     if(tf){ const rest=tf.flush(); if(rest) emit(rest); } else full = raw;
@@ -2665,7 +2669,7 @@ async function toggleAR(){
   camMirrored = st.facingMode ? st.facingMode==='user' : !isMobile; // laptop webcams face you → mirror like a mirror
   const v=$('arVideo');
   v.srcObject=arStream; v.classList.add('show'); v.classList.toggle('mirror', camMirrored);
-  v.play().catch(()=>{});
+  safeP(()=>v.play());
   document.body.classList.add('ar-mode');
   arActive=true;
   $('arStatusText').textContent='live';
@@ -2965,7 +2969,7 @@ function buildEyePanes(){
     v.autoplay=true; v.playsInline=true; v.muted=true;
     if(camMirrored) v.classList.add('mirror');
     if(arStream) v.srcObject=arStream;
-    pane.appendChild(v); v.play().catch(()=>{});
+    pane.appendChild(v); safeP(()=>v.play());
     const world=document.createElement('div'); world.className='eye-world';
     const ring=$('orbitRing').cloneNode(true); ring.removeAttribute('id');
     const sp=document.createElement('div'); sp.className='goggle-screen';
@@ -3069,9 +3073,9 @@ async function enterGoggles(){
 }
 async function enterGogglesInner(){
   requestOrientationPermission();                         // needs the tap (iOS)
-  const fsP = document.documentElement.requestFullscreen ? document.documentElement.requestFullscreen({navigationUI:'hide'}).catch(()=>{}) : Promise.resolve();
+  const fsP = document.documentElement.requestFullscreen ? safeP(()=>document.documentElement.requestFullscreen({navigationUI:'hide'})) : Promise.resolve();
   if(!arActive) await toggleAR();
-  if(!arActive){ await fsP; if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); return; }
+  if(!arActive){ await fsP; if(document.fullscreenElement) safeP(()=>document.exitFullscreen()); return; }
   Goggles.active=true; perfSaveMode=true;
   buildEyePanes();
   gogglesOverlay.classList.add('show');
@@ -3097,9 +3101,9 @@ function exitGoggles(){
   Hands.lose();
   ['eyeLeft','eyeRight'].forEach(id=>{ const v=$(id).querySelector('video'); if(v) v.srcObject=null; $(id).innerHTML=''; });
   paneIconCache=[];
-  if(wakeLockRef){ wakeLockRef.release().catch(()=>{}); wakeLockRef=null; }
+  if(wakeLockRef){ const wl=wakeLockRef; safeP(()=>wl.release()); wakeLockRef=null; }
   try{ window.screen.orientation && window.screen.orientation.unlock && window.screen.orientation.unlock(); }catch(e){}
-  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  if(document.fullscreenElement) safeP(()=>document.exitFullscreen());
   // There's no separate AR toggle any more — goggles is the only thing that ever
   // turns the camera on, so leaving goggles is what turns it back off.
   if(arActive) toggleAR();

@@ -1,5 +1,5 @@
-// J.A.R.V.I.S v10.5 service worker v11
-const CACHE_NAME = 'jarvis-app-v11-persona';
+// J.A.R.V.I.S v11.1 service worker
+const CACHE_NAME = 'jarvis-app-v11-1-audited';
 const ASSETS = [
   './',
   './index.html',
