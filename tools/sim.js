@@ -171,6 +171,15 @@ async function runDevice(dev, runNo) {
     check('commands rendered replies (' + (after - before) + ' msgs)', after - before >= cmds.length);
     check('speech engine spoke', sink.spoken.length > 0, sink.spoken.length + ' utterances');
 
+    // v12 shell: tab navigation, live readouts, orb canvas
+    const dockBtns = [...win.document.querySelectorAll('#dock [data-go]')];
+    if (dockBtns.length) {
+      for (const b of dockBtns) { click(b); await wait(30); const on = [...win.document.querySelectorAll('.view.on')].map(v => v.dataset.view); check('tab "' + b.dataset.go + '" shows only its view', on.length === 1 && on[0] === b.dataset.go, on.join(',')); }
+      click(dockBtns[0]); await wait(30);
+      await wait(1200);
+      check('perf chip shows a number', /\d/.test((win.document.getElementById('perfFps') || {}).textContent || ''), (win.document.getElementById('perfFps') || {}).textContent);
+      check('system gauges populated', /\S/.test((win.document.getElementById('cpuVal') || {}).textContent || '') && (win.document.getElementById('devProfile') || {}).textContent !== 'detecting…', (win.document.getElementById('devProfile') || {}).textContent);
+    }
     // image generation: success path
     sink.imageFail = false; if (input) { input.value = 'generate an image of a red sports car'; click(send); await wait(200); }
     check('image render appended <img>', win.document.querySelectorAll('#screen img, .screen img').length >= 1);
