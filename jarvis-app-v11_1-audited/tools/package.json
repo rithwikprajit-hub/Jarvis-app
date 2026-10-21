@@ -1,0 +1,1 @@
+{ "name": "jarvis-audit-tools", "private": true, "scripts": { "sim": "node sim.js ../index.html --runs 3", "lint": "node extract.js && eslint all.js" }, "devDependencies": { "eslint": "^9", "globals": "*", "jsdom": "^24" } }
